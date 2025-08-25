@@ -1,4 +1,4 @@
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -186,11 +186,10 @@
     import { getFirestore, collection, addDoc, getDoc, doc, updateDoc, onSnapshot, query, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // Global variables for Firebase services
-    let app, auth, db, userId;
+    let app, auth, db, userId, APP_ID;
     let unsubscribeAdminListener = null;
     let cachedServiceCalls = []; // Store the data for the report
-    const APP_ID = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
+    
     // Engineers for the dropdown menu
     const ENGINEERS = ["Akash Rathore", "Jayant Pandit", "Abhay Sharma"];
     // Status options for the dropdown menu
@@ -278,9 +277,10 @@
     // Initialize Firebase and Authentication
     async function initializeFirebase() {
         try {
-            // Retrieve Firebase config and app ID from environment variables
+            // Use the global variables provided by the Canvas environment
             const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
             const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
             if (Object.keys(firebaseConfig).length === 0) {
                 showModal('Error', 'Firebase configuration is missing. The app cannot function without it.');
@@ -290,6 +290,9 @@
             app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
+            
+            // Set the global APP_ID for use in other functions
+            APP_ID = appId;
 
             // Authenticate the user
             if (authToken) {
@@ -301,7 +304,7 @@
             userId = auth.currentUser?.uid || 'anonymous-user';
 
             console.log("Firebase initialized successfully. User ID:", userId);
-
+            
         } catch (error) {
             console.error("Error initializing Firebase:", error);
             showModal('Error', 'Failed to initialize the application. Please try again.');
