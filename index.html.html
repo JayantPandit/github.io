@@ -1,0 +1,1588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Call Management System</title>
+    <script src="https://cdn.jsdelivr.net/npm/sql.js@1.6.2/dist/sql-wasm.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            width: 90%;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            text-align: center;
+            margin-bottom: 30px;
+            border-radius: 5px;
+            position: relative;
+        }
+        .system-time {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            color: white;
+            font-size: 14px;
+            background-color: rgba(52, 152, 219, 0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .admin-link {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+            background-color: #3498db;
+            padding: 5px 15px;
+            border-radius: 4px;
+        }
+        .admin-link:hover {
+            background-color: #2980b9;
+        }
+        .status-check {
+            margin: 30px auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            max-width: 600px;
+        }
+        form {
+            background-color: white;
+            padding: 25px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 18px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            background-color: #27ae60;
+            color: white;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+        }
+        .notification.error {
+            background-color: #e74c3c;
+        }
+        #adminPanel {
+            display: none;
+            margin-top: 30px;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background-color: #3498db;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+            background-color: white;
+            border-radius: 0 0 5px 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .tab-content.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .status-pending {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .status-inprocess {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        .status-closed {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        #passwordModal, #ticketModal, #timeModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 5px;
+            width: 500px;
+            max-width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-content h2 {
+            margin-top: 0;
+        }
+        .modal-content input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        .ticket-details {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .ticket-details p {
+            margin: 10px 0;
+        }
+        .ticket-id {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .time-info {
+            background-color: #e8f4fc;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #3498db;
+        }
+        .time-metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        .time-value {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .time-badge {
+            background-color: #e74c3c;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 5px;
+        }
+        .time-badge.warning {
+            background-color: #f39c12;
+        }
+        .time-badge.good {
+            background-color: #27ae60;
+        }
+        .db-actions {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .db-actions button {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div id="notification" class="notification"></div>
+    
+    <div id="passwordModal">
+        <div class="modal-content">
+            <h2>Admin Login</h2>
+            <p>Please enter the admin password:</p>
+            <input type="password" id="adminPasswordInput" placeholder="Enter password">
+            <button onclick="checkAdminPassword()">Login</button>
+        </div>
+    </div>
+
+    <div id="ticketModal">
+        <div class="modal-content">
+            <h2>Service Request Status</h2>
+            <div id="ticketDetails" class="ticket-details">
+                <!-- Ticket details will be shown here -->
+            </div>
+            <button onclick="closeTicketModal()" style="margin-top: 20px;">Close</button>
+        </div>
+    </div>
+
+    <div id="timeModal">
+        <div class="modal-content">
+            <h2>Enter Time Spent</h2>
+            <div class="form-group">
+                <label for="timeSpent">Time Spent (minutes):</label>
+                <input type="number" id="timeSpent" min="1" required>
+            </div>
+            <div class="form-group">
+                <label for="completionNotes">Completion Notes:</label>
+                <textarea id="completionNotes" rows="3"></textarea>
+            </div>
+            <button onclick="saveTimeSpent()">Save</button>
+            <button onclick="closeTimeModal()" style="background-color: #95a5a6; margin-left: 10px;">Cancel</button>
+        </div>
+    </div>
+
+    <header>
+        <div class="system-time" id="systemTime">
+            Loading time...
+        </div>
+        <h1>Service Call Management System</h1>
+        <a href="#" class="admin-link" onclick="showAdminLogin()">Admin Login</a>
+    </header>
+
+    <div class="container">
+        <!-- Main Service Request Form -->
+        <form id="serviceRequestForm">
+            <h2>New Service Request</h2>
+            <div class="form-group">
+                <label for="customerName">Customer Name*</label>
+                <input type="text" id="customerName" required>
+            </div>
+            <div class="form-group">
+                <label for="companyName">Company Name</label>
+                <input type="text" id="companyName">
+            </div>
+            <div class="form-group">
+                <label for="contactNumber">Contact Number*</label>
+                <input type="tel" id="contactNumber" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email*</label>
+                <input type="email" id="email" required>
+            </div>
+            <div class="form-group">
+                <label for="address">Address*</label>
+                <textarea id="address" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="deviceType">Device Type*</label>
+                <select id="deviceType" required>
+                    <option value="">Select Device</option>
+                    <option value="Desktop">Desktop Computer</option>
+                    <option value="Laptop">Laptop</option>
+                    <option value="Printer">Printer</option>
+                    <option value="Server">Server</option>
+                    <option value="Network">Network Equipment</option>
+                    <option value="Other">Other Peripheral</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="brand">Brand/Model</label>
+                <input type="text" id="brand">
+            </div>
+            <div class="form-group">
+                <label for="serialNumber">Serial Number</label>
+                <input type="text" id="serialNumber">
+            </div>
+            <div class="form-group">
+                <label for="issueDescription">Issue Description*</label>
+                <textarea id="issueDescription" rows="4" required></textarea>
+            </div>
+            <div class="form-group">
+                <label for="serviceType">Service Type*</label>
+                <select id="serviceType" required>
+                    <option value="">Select Service Type</option>
+                    <option value="AMC">AMC (Annual Maintenance Contract)</option>
+                    <option value="Chargeable">Chargeable Service</option>
+                    <option value="Warranty">Warranty Service</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="priority">Priority*</label>
+                <select id="priority" required>
+                    <option value="Low">Low</option>
+                    <option value="Medium" selected>Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                </select>
+            </div>
+            <button type="submit" id="submitBtn">Submit Service Request</button>
+        </form>
+
+        <!-- Status Check Form -->
+        <div class="status-check">
+            <h2>Check Your Service Request Status</h2>
+            <div class="form-group">
+                <label for="ticketNumber">Enter your Ticket Number (SR-XXXX):</label>
+                <input type="text" id="ticketNumber" placeholder="SR-XXXX">
+            </div>
+            <button onclick="checkTicketStatus()">Check Status</button>
+        </div>
+
+        <!-- Admin Panel (hidden by default) -->
+        <div id="adminPanel">
+            <div class="tabs">
+                <div class="tab active" onclick="openAdminTab('calls')">Service Calls</div>
+                <div class="tab" onclick="openAdminTab('engineers')">Engineers</div>
+                <div class="tab" onclick="openAdminTab('assign')">Assign Calls</div>
+                <div class="tab" onclick="openAdminTab('reports')">Reports</div>
+                <div class="tab" onclick="openAdminTab('database')">Database</div>
+            </div>
+
+            <!-- Service Calls Tab -->
+            <div id="adminCalls" class="tab-content active">
+                <h2>Service Calls Management</h2>
+                <div>
+                    <label for="callStatusFilter">Filter by Status:</label>
+                    <select id="callStatusFilter" onchange="filterAdminCalls()">
+                        <option value="All">All</option>
+                        <option value="Pending">Pending</option>
+                        <option value="In Process">In Process</option>
+                        <option value="Closed">Closed</option>
+                    </select>
+                </div>
+                <table id="adminCallTable">
+                    <thead>
+                        <tr>
+                            <th>Ticket ID</th>
+                            <th>Date/Time</th>
+                            <th>Customer</th>
+                            <th>Device</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Time Elapsed</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminCallTableBody">
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Engineers Tab -->
+            <div id="adminEngineers" class="tab-content">
+                <h2>Engineers Management</h2>
+                <form id="engineerForm" style="margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label for="engineerName">Engineer Name*</label>
+                        <input type="text" id="engineerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="engineerContact">Contact Number</label>
+                        <input type="tel" id="engineerContact">
+                    </div>
+                    <div class="form-group">
+                        <label for="engineerEmail">Email</label>
+                        <input type="email" id="engineerEmail">
+                    </div>
+                    <div class="form-group">
+                        <label for="engineerSpecialization">Specialization</label>
+                        <input type="text" id="engineerSpecialization" placeholder="Comma separated (e.g., Laptop, Printer)">
+                    </div>
+                    <button type="submit">Add Engineer</button>
+                </form>
+                <table id="engineerTable">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Contact</th>
+                            <th>Email</th>
+                            <th>Specialization</th>
+                            <th>Active Tasks</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="engineerTableBody">
+                        <!-- Will be populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Assign Calls Tab -->
+            <div id="adminAssign" class="tab-content">
+                <h2>Assign Service Calls</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <h3>Unassigned Calls</h3>
+                        <table id="adminUnassignedTable">
+                            <thead>
+                                <tr>
+                                    <th>Select</th>
+                                    <th>Ticket ID</th>
+                                    <th>Customer</th>
+                                    <th>Device</th>
+                                    <th>Waiting Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminUnassignedTableBody">
+                                <!-- Will be populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <h3>Assign to Engineer</h3>
+                        <div class="form-group">
+                            <label for="adminEngineerSelect">Select Engineer*</label>
+                            <select id="adminEngineerSelect">
+                                <option value="">Select Engineer</option>
+                                <!-- Will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="adminExpectedDate">Expected Completion Date</label>
+                            <input type="datetime-local" id="adminExpectedDate">
+                        </div>
+                        <div class="form-group">
+                            <label for="adminAssignNotes">Notes</label>
+                            <textarea id="adminAssignNotes" rows="3"></textarea>
+                        </div>
+                        <button onclick="adminAssignCalls()">Assign Selected Calls</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports Tab -->
+            <div id="adminReports" class="tab-content">
+                <h2>Reports</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <div class="form-group">
+                            <label for="reportType">Report Type*</label>
+                            <select id="reportType">
+                                <option value="daily">Daily Call Report</option>
+                                <option value="weekly">Weekly Summary</option>
+                                <option value="monthly">Monthly Summary</option>
+                                <option value="engineer">Engineer Performance</option>
+                                <option value="response">Response Time Analysis</option>
+                                <option value="completion">Completion Time Analysis</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="reportStartDate">Start Date</label>
+                            <input type="datetime-local" id="reportStartDate">
+                        </div>
+                        <div class="form-group">
+                            <label for="reportEndDate">End Date</label>
+                            <input type="datetime-local" id="reportEndDate">
+                        </div>
+                        <div class="form-group">
+                            <label for="reportEngineerFilter">Filter by Engineer</label>
+                            <select id="reportEngineerFilter">
+                                <option value="">All Engineers</option>
+                                <!-- Will be populated by JavaScript -->
+                            </select>
+                        </div>
+                        <button onclick="generateAdminReport()">Generate Report</button>
+                    </div>
+                    <div>
+                        <h3>Report Preview</h3>
+                        <div id="adminReportPreview" style="background-color: white; padding: 20px; min-height: 300px; border: 1px dashed #ccc; overflow-y: auto;">
+                            <p>Report will be displayed here</p>
+                        </div>
+                        <button style="margin-top: 10px;" onclick="exportAdminToExcel()">Export to Excel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Database Tab -->
+            <div id="adminDatabase" class="tab-content">
+                <h2>Database Management</h2>
+                <div class="db-actions">
+                    <button onclick="exportDatabase()">Export Database</button>
+                    <button onclick="importDatabase()">Import Database</button>
+                    <button onclick="resetDatabase()" style="background-color: #e74c3c;">Reset Database</button>
+                </div>
+                <input type="file" id="dbImportFile" style="display: none;" accept=".db,.sqlite">
+                <p style="color: #777; font-size: 14px; margin-top: 10px;">
+                    <strong>Warning:</strong> Reset will delete all data and recreate the database structure.
+                </p>
+                <div style="margin-top: 20px;">
+                    <h3>Database Status</h3>
+                    <div id="dbStatus" style="background-color: #f9f9f9; padding: 15px; border-radius: 5px;">
+                        <p>Database loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let db;
+        const ADMIN_PASSWORD = "654123";
+        let dbInitialized = false;
+        let lastTicketId = null;
+        let currentCallIdForTime = null;
+
+        // Update system time display
+        function updateSystemTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('systemTime').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        // Get current datetime in SQLite format
+        function getCurrentDateTime() {
+            const now = new Date();
+            return now.toISOString().slice(0, 19).replace('T', ' ');
+        }
+
+        // Calculate time difference in human readable format
+        function formatTimeDifference(startTime, endTime = null) {
+            if (!startTime) return 'N/A';
+            
+            const start = new Date(startTime);
+            const end = endTime ? new Date(endTime) : new Date();
+            
+            const diffMs = end - start;
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const diffHrs = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+            
+            let result = '';
+            if (diffDays > 0) result += `${diffDays}d `;
+            if (diffHrs > 0) result += `${diffHrs}h `;
+            result += `${diffMins}m`;
+            
+            return result;
+        }
+
+        // Show notification
+        function showNotification(message, type = "success") {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = "notification " + (type === "error" ? "error" : "");
+            notification.style.display = "block";
+            
+            setTimeout(() => {
+                notification.style.display = "none";
+            }, 3000);
+        }
+
+        // Initialize SQL.js when page loads
+        async function initializeDatabase() {
+            try {
+                showNotification("Initializing service system...", "success");
+                document.getElementById('submitBtn').innerHTML = '<span class="loading"></span> System initializing...';
+                document.getElementById('submitBtn').disabled = true;
+                
+                const SQL = await initSqlJs({
+                    locateFile: file => `https://cdn.jsdelivr.net/npm/sql.js@1.6.2/dist/${file}`
+                });
+                
+                // Try to load from localStorage first
+                const savedDb = localStorage.getItem('serviceCallDB');
+                if (savedDb) {
+                    const data = new Uint8Array(JSON.parse(savedDb));
+                    db = new SQL.Database(data);
+                    showNotification("Database loaded from local storage", "success");
+                } else {
+                    db = new SQL.Database();
+                    createDatabaseStructure();
+                    showNotification("New database created", "success");
+                }
+                
+                dbInitialized = true;
+                updateDbStatus();
+                
+                document.getElementById('submitBtn').innerHTML = 'Submit Service Request';
+                document.getElementById('submitBtn').disabled = false;
+                
+                // Start system time updates
+                updateSystemTime();
+                setInterval(updateSystemTime, 1000);
+                
+            } catch (error) {
+                console.error("Error initializing database:", error);
+                document.getElementById('submitBtn').innerHTML = 'System Error - Refresh Page';
+                showNotification("Error initializing service system. Please refresh the page.", "error");
+            }
+        }
+
+        // Save database to localStorage
+        function saveDatabase() {
+            if (!dbInitialized) return;
+            
+            try {
+                const data = db.export();
+                const arrayData = Array.from(data);
+                localStorage.setItem('serviceCallDB', JSON.stringify(arrayData));
+            } catch (error) {
+                console.error("Error saving database:", error);
+            }
+        }
+
+        // Create database structure
+        function createDatabaseStructure() {
+            try {
+                // Create Customers table
+                db.exec(`
+                    CREATE TABLE IF NOT EXISTS Customers (
+                        customer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        company TEXT,
+                        contact_number TEXT NOT NULL,
+                        email TEXT NOT NULL,
+                        address TEXT NOT NULL,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+                
+                // Create Engineers table
+                db.exec(`
+                    CREATE TABLE IF NOT EXISTS Engineers (
+                        engineer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        contact_number TEXT,
+                        email TEXT,
+                        specialization TEXT,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    )
+                `);
+                
+                // Create ServiceCalls table
+                db.exec(`
+                    CREATE TABLE IF NOT EXISTS ServiceCalls (
+                        call_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        customer_id INTEGER NOT NULL,
+                        device_type TEXT NOT NULL,
+                        brand_model TEXT,
+                        serial_number TEXT,
+                        issue_description TEXT NOT NULL,
+                        service_type TEXT NOT NULL,
+                        priority TEXT NOT NULL,
+                        status TEXT DEFAULT 'Pending',
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                        assigned_at TEXT,
+                        started_at TEXT,
+                        completed_at TEXT,
+                        time_spent_minutes INTEGER,
+                        completion_notes TEXT,
+                        FOREIGN KEY (customer_id) REFERENCES Customers(customer_id)
+                    )
+                `);
+                
+                // Create Assignments table
+                db.exec(`
+                    CREATE TABLE IF NOT EXISTS Assignments (
+                        assignment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        call_id INTEGER NOT NULL,
+                        engineer_id INTEGER NOT NULL,
+                        assigned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                        expected_completion TEXT,
+                        actual_completion TEXT,
+                        notes TEXT,
+                        FOREIGN KEY (call_id) REFERENCES ServiceCalls(call_id),
+                        FOREIGN KEY (engineer_id) REFERENCES Engineers(engineer_id)
+                    )
+                `);
+                
+                // Check if we need sample data
+                const hasData = db.exec("SELECT COUNT(*) FROM Customers");
+                if (hasData.length === 0 || hasData[0].values[0][0] === 0) {
+                    addSampleData();
+                }
+                
+                saveDatabase();
+                
+            } catch (error) {
+                console.error("Error creating database structure:", error);
+                showNotification("Error creating database structure: " + error.message, "error");
+            }
+        }
+
+        // Form submission for new service call
+        document.getElementById('serviceRequestForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!dbInitialized) {
+                showNotification("Service system is still initializing. Please try again in a moment.", "error");
+                return;
+            }
+            
+            try {
+                const currentTime = getCurrentDateTime();
+                
+                // Insert customer first
+                const customerName = document.getElementById('customerName').value;
+                const companyName = document.getElementById('companyName').value;
+                const contactNumber = document.getElementById('contactNumber').value;
+                const email = document.getElementById('email').value;
+                const address = document.getElementById('address').value;
+                
+                const customerStmt = db.prepare(`
+                    INSERT INTO Customers (name, company, contact_number, email, address, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                `);
+                customerStmt.bind([customerName, companyName, contactNumber, email, address, currentTime]);
+                customerStmt.step();
+                const customerId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+                customerStmt.free();
+                
+                // Insert service call
+                const deviceType = document.getElementById('deviceType').value;
+                const brand = document.getElementById('brand').value;
+                const serialNumber = document.getElementById('serialNumber').value;
+                const issueDescription = document.getElementById('issueDescription').value;
+                const serviceType = document.getElementById('serviceType').value;
+                const priority = document.getElementById('priority').value;
+                
+                const callStmt = db.prepare(`
+                    INSERT INTO ServiceCalls (customer_id, device_type, brand_model, serial_number, issue_description, service_type, priority, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `);
+                callStmt.bind([customerId, deviceType, brand, serialNumber, issueDescription, serviceType, priority, currentTime]);
+                callStmt.step();
+                lastTicketId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
+                callStmt.free();
+                
+                // Reset form
+                this.reset();
+                
+                // Save database
+                saveDatabase();
+                
+                // Show ticket confirmation
+                showTicketConfirmation(lastTicketId);
+                
+                showNotification("Service request submitted successfully!", "success");
+                
+                // Refresh admin panel if open
+                if (document.getElementById('adminPanel').style.display === 'block') {
+                    loadAdminCalls();
+                    loadUnassignedCalls();
+                }
+            } catch (error) {
+                console.error("Error submitting service request:", error);
+                showNotification("Error submitting service request: " + error.message, "error");
+            }
+        });
+
+        // Show ticket confirmation
+        function showTicketConfirmation(ticketId) {
+            const ticketNumber = `SR-${ticketId}`;
+            const currentTime = new Date().toLocaleString();
+            const modalContent = `
+                <h2>Service Request Submitted</h2>
+                <div class="ticket-details">
+                    <p>Your service request has been successfully submitted.</p>
+                    <p class="ticket-id">Ticket Number: ${ticketNumber}</p>
+                    <p><strong>Submission Time:</strong> ${currentTime}</p>
+                    <p>Please save this number for future reference.</p>
+                    <p>You can check your service status anytime using this ticket number.</p>
+                </div>
+            `;
+            document.getElementById('ticketDetails').innerHTML = modalContent;
+            document.getElementById('ticketModal').style.display = 'flex';
+        }
+
+        // Close ticket modal
+        function closeTicketModal() {
+            document.getElementById('ticketModal').style.display = 'none';
+        }
+
+        // Close time modal
+        function closeTimeModal() {
+            document.getElementById('timeModal').style.display = 'none';
+            currentCallIdForTime = null;
+        }
+
+        // Check ticket status
+        function checkTicketStatus() {
+            const ticketNumber = document.getElementById('ticketNumber').value;
+            if (!ticketNumber || !ticketNumber.startsWith('SR-')) {
+                showNotification("Please enter a valid ticket number (SR-XXXX)", "error");
+                return;
+            }
+            
+            const ticketId = parseInt(ticketNumber.split('-')[1]);
+            if (isNaN(ticketId)) {
+                showNotification("Invalid ticket number format", "error");
+                return;
+            }
+            
+            try {
+                const stmt = db.prepare(`
+                    SELECT 
+                        'SR-' || sc.call_id AS ticket_id,
+                        sc.created_at AS created_date,
+                        sc.assigned_at,
+                        sc.started_at,
+                        sc.completed_at,
+                        c.name AS customer_name,
+                        sc.device_type,
+                        sc.brand_model,
+                        sc.issue_description,
+                        sc.service_type,
+                        sc.priority,
+                        sc.status,
+                        e.name AS engineer_name,
+                        a.expected_completion,
+                        sc.time_spent_minutes,
+                        sc.completion_notes
+                    FROM ServiceCalls sc
+                    JOIN Customers c ON sc.customer_id = c.customer_id
+                    LEFT JOIN Assignments a ON sc.call_id = a.call_id
+                    LEFT JOIN Engineers e ON a.engineer_id = e.engineer_id
+                    WHERE sc.call_id = ?
+                `);
+                stmt.bind([ticketId]);
+                
+                if (stmt.step()) {
+                    const row = stmt.get();
+                    
+                    let timeInfo = '';
+                    if (row[4]) { // Completed
+                        timeInfo = `
+                            <div class="time-info">
+                                <h4>Time Tracking</h4>
+                                <div class="time-metric"><span>Created:</span> <span class="time-value">${new Date(row[1]).toLocaleString()}</span></div>
+                                ${row[2] ? `<div class="time-metric"><span>Assigned:</span> <span class="time-value">${new Date(row[2]).toLocaleString()}</span></div>` : ''}
+                                ${row[3] ? `<div class="time-metric"><span>Work Started:</span> <span class="time-value">${new Date(row[3]).toLocaleString()}</span></div>` : ''}
+                                <div class="time-metric"><span>Completed:</span> <span class="time-value">${new Date(row[4]).toLocaleString()}</span></div>
+                                ${row[14] ? `<div class="time-metric"><span>Time Spent:</span> <span class="time-value">${row[14]} minutes</span></div>` : ''}
+                            </div>
+                        `;
+                    }
+                    
+                    const modalContent = `
+                        <h2>Service Request Status</h2>
+                        <div class="ticket-details">
+                            <p class="ticket-id">Ticket Number: ${row[0]}</p>
+                            <p><strong>Status:</strong> <span class="status-${row[11].toLowerCase().replace(' ', '')}">${row[11]}</span></p>
+                            <p><strong>Customer:</strong> ${row[5]}</p>
+                            <p><strong>Device:</strong> ${row[6]} ${row[7] ? '(' + row[7] + ')' : ''}</p>
+                            <p><strong>Issue:</strong> ${row[8]}</p>
+                            <p><strong>Service Type:</strong> ${row[9]}</p>
+                            <p><strong>Priority:</strong> ${row[10]}</p>
+                            ${row[12] ? `<p><strong>Assigned Engineer:</strong> ${row[12]}</p>` : ''}
+                            ${row[13] ? `<p><strong>Expected Completion:</strong> ${new Date(row[13]).toLocaleString()}</p>` : ''}
+                            ${row[15] ? `<p><strong>Completion Notes:</strong> ${row[15]}</p>` : ''}
+                            ${timeInfo}
+                        </div>
+                    `;
+                    document.getElementById('ticketDetails').innerHTML = modalContent;
+                    document.getElementById('ticketModal').style.display = 'flex';
+                } else {
+                    showNotification("Ticket not found", "error");
+                }
+                
+                stmt.free();
+            } catch (error) {
+                console.error("Error checking ticket status:", error);
+                showNotification("Error checking ticket status", "error");
+            }
+        }
+
+        // Show admin login modal
+        function showAdminLogin() {
+            document.getElementById('passwordModal').style.display = "flex";
+        }
+
+        // Check admin password
+        function checkAdminPassword() {
+            const password = document.getElementById('adminPasswordInput').value;
+            if (password === ADMIN_PASSWORD) {
+                document.getElementById('passwordModal').style.display = "none";
+                document.getElementById('adminPanel').style.display = "block";
+                loadAdminData();
+                showNotification("Admin panel accessed successfully", "success");
+            } else {
+                alert("Incorrect password. Please try again.");
+                document.getElementById('adminPasswordInput').value = "";
+            }
+        }
+
+        // Load data for admin panel
+        function loadAdminData() {
+            loadAdminCalls();
+            loadEngineers();
+            loadUnassignedCalls();
+            updateDbStatus();
+        }
+
+        // Load calls for admin panel
+        function loadAdminCalls() {
+            try {
+                const stmt = db.prepare(`
+                    SELECT 
+                        sc.call_id,
+                        'SR-' || sc.call_id AS ticket_id,
+                        sc.created_at,
+                        sc.assigned_at,
+                        sc.started_at,
+                        sc.completed_at,
+                        c.name AS customer_name,
+                        sc.device_type,
+                        sc.brand_model,
+                        sc.priority,
+                        sc.status
+                    FROM ServiceCalls sc
+                    JOIN Customers c ON sc.customer_id = c.customer_id
+                    ORDER BY sc.created_at DESC
+                `);
+                
+                const tableBody = document.getElementById('adminCallTableBody');
+                tableBody.innerHTML = '';
+                
+                while (stmt.step()) {
+                    const row = stmt.get();
+                    const tr = document.createElement('tr');
+                    
+                    let timeElapsed = formatTimeDifference(row[2]);
+                    
+                    tr.innerHTML = `
+                        <td>${row[1]}</td>
+                        <td>${new Date(row[2]).toLocaleString()}</td>
+                        <td>${row[6]}</td>
+                        <td>${row[7]} ${row[8] ? '(' + row[8] + ')' : ''}</td>
+                        <td>${row[9]}</td>
+                        <td class="status-${row[10].toLowerCase().replace(' ', '')}">${row[10]}</td>
+                        <td>${timeElapsed}</td>
+                        <td>
+                            <button onclick="adminViewDetails(${row[0]})">View</button>
+                            <button onclick="adminUpdateStatus(${row[0]})">Update Status</button>
+                            <button onclick="adminDeleteCall(${row[0]})" style="background-color: #e74c3c;">Delete</button>
+                        </td>
+                    `;
+                    
+                    tableBody.appendChild(tr);
+                }
+                
+                stmt.free();
+            } catch (error) {
+                console.error("Error loading admin calls:", error);
+                showNotification("Error loading calls: " + error.message, "error");
+            }
+        }
+
+        // Load engineers for admin panel
+        function loadEngineers() {
+            try {
+                const stmt = db.prepare(`
+                    SELECT 
+                        e.engineer_id,
+                        e.name,
+                        e.contact_number,
+                        e.email,
+                        e.specialization,
+                        COUNT(a.assignment_id) as active_tasks
+                    FROM Engineers e
+                    LEFT JOIN Assignments a ON e.engineer_id = a.engineer_id 
+                    AND a.actual_completion IS NULL
+                    GROUP BY e.engineer_id
+                    ORDER BY e.name
+                `);
+                
+                const tableBody = document.getElementById('engineerTableBody');
+                const engineerSelect = document.getElementById('adminEngineerSelect');
+                const reportEngineerFilter = document.getElementById('reportEngineerFilter');
+                
+                // Clear existing options except the first one
+                tableBody.innerHTML = '';
+                while (engineerSelect.options.length > 1) engineerSelect.remove(1);
+                while (reportEngineerFilter.options.length > 1) reportEngineerFilter.remove(1);
+                
+                while (stmt.step()) {
+                    const row = stmt.get();
+                    
+                    // Add to engineers table
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${row[1]}</td>
+                        <td>${row[2]}</td>
+                        <td>${row[3]}</td>
+                        <td>${row[4]}</td>
+                        <td>${row[5]} active task(s)</td>
+                        <td>
+                            <button onclick="adminEditEngineer(${row[0]})">Edit</button>
+                            <button onclick="adminDeleteEngineer(${row[0]})" style="background-color: #e74c3c;">Delete</button>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                    
+                    // Add to dropdowns
+                    const option1 = document.createElement('option');
+                    option1.value = row[0];
+                    option1.textContent = row[1];
+                    engineerSelect.appendChild(option1);
+                    
+                    const option2 = document.createElement('option');
+                    option2.value = row[0];
+                    option2.textContent = row[1];
+                    reportEngineerFilter.appendChild(option2);
+                }
+                
+                stmt.free();
+            } catch (error) {
+                console.error("Error loading engineers:", error);
+                showNotification("Error loading engineers: " + error.message, "error");
+            }
+        }
+
+        // Load unassigned calls for admin panel
+        function loadUnassignedCalls() {
+            try {
+                const stmt = db.prepare(`
+                    SELECT 
+                        sc.call_id,
+                        'SR-' || sc.call_id AS ticket_id,
+                        c.name AS customer_name,
+                        sc.device_type,
+                        sc.brand_model,
+                        sc.created_at,
+                        sc.priority
+                    FROM ServiceCalls sc
+                    JOIN Customers c ON sc.customer_id = c.customer_id
+                    LEFT JOIN Assignments a ON sc.call_id = a.call_id
+                    WHERE a.assignment_id IS NULL AND sc.status != 'Closed'
+                    ORDER BY sc.created_at ASC
+                `);
+                
+                const tableBody = document.getElementById('adminUnassignedTableBody');
+                tableBody.innerHTML = '';
+                
+                while (stmt.step()) {
+                    const row = stmt.get();
+                    const tr = document.createElement('tr');
+                    
+                    const waitingTime = formatTimeDifference(row[5]);
+                    
+                    tr.innerHTML = `
+                        <td><input type="checkbox" value="${row[0]}"></td>
+                        <td>${row[1]}</td>
+                        <td>${row[2]}</td>
+                        <td>${row[3]} ${row[4] ? '(' + row[4] + ')' : ''}</td>
+                        <td>${waitingTime}</td>
+                    `;
+                    
+                    tableBody.appendChild(tr);
+                }
+                
+                stmt.free();
+            } catch (error) {
+                console.error("Error loading unassigned calls:", error);
+                showNotification("Error loading unassigned calls: " + error.message, "error");
+            }
+        }
+
+        // Admin tab switching
+        function openAdminTab(tabName) {
+            const tabs = document.querySelectorAll('#adminPanel .tab');
+            const tabContents = document.querySelectorAll('#adminPanel .tab-content');
+            
+            tabs.forEach(tab => tab.classList.remove('active'));
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            document.getElementById(`admin${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // Admin view details
+        function adminViewDetails(callId) {
+            try {
+                const stmt = db.prepare(`
+                    SELECT 
+                        'SR-' || sc.call_id AS ticket_id,
+                        sc.created_at,
+                        sc.assigned_at,
+                        sc.started_at,
+                        sc.completed_at,
+                        c.name AS customer_name,
+                        c.company,
+                        c.contact_number,
+                        c.email,
+                        c.address,
+                        sc.device_type,
+                        sc.brand_model,
+                        sc.serial_number,
+                        sc.issue_description,
+                        sc.service_type,
+                        sc.priority,
+                        sc.status,
+                        e.name AS engineer_name,
+                        e.contact_number AS engineer_contact,
+                        a.expected_completion,
+                        sc.time_spent_minutes,
+                        sc.completion_notes
+                    FROM ServiceCalls sc
+                    JOIN Customers c ON sc.customer_id = c.customer_id
+                    LEFT JOIN Assignments a ON sc.call_id = a.call_id
+                    LEFT JOIN Engineers e ON a.engineer_id = e.engineer_id
+                    WHERE sc.call_id = ?
+                `);
+                stmt.bind([callId]);
+                
+                if (stmt.step()) {
+                    const row = stmt.get();
+                    
+                    const modalContent = `
+                        <h2>Service Request Details</h2>
+                        <div class="ticket-details">
+                            <p class="ticket-id">Ticket Number: ${row[0]}</p>
+                            <p><strong>Status:</strong> <span class="status-${row[16].toLowerCase().replace(' ', '')}">${row[16]}</span></p>
+                            <p><strong>Created:</strong> ${new Date(row[1]).toLocaleString()}</p>
+                            ${row[2] ? `<p><strong>Assigned:</strong> ${new Date(row[2]).toLocaleString()}</p>` : ''}
+                            ${row[3] ? `<p><strong>Work Started:</strong> ${new Date(row[3]).toLocaleString()}</p>` : ''}
+                            ${row[4] ? `<p><strong>Completed:</strong> ${new Date(row[4]).toLocaleString()}</p>` : ''}
+                            
+                            <h4>Customer Information</h4>
+                            <p><strong>Name:</strong> ${row[5]}</p>
+                            ${row[6] ? `<p><strong>Company:</strong> ${row[6]}</p>` : ''}
+                            <p><strong>Contact:</strong> ${row[7]}</p>
+                            <p><strong>Email:</strong> ${row[8]}</p>
+                            <p><strong>Address:</strong> ${row[9]}</p>
+                            
+                            <h4>Device Information</h4>
+                            <p><strong>Device:</strong> ${row[10]} ${row[11] ? '(' + row[11] + ')' : ''}</p>
+                            ${row[12] ? `<p><strong>Serial Number:</strong> ${row[12]}</p>` : ''}
+                            <p><strong>Issue:</strong> ${row[13]}</p>
+                            <p><strong>Service Type:</strong> ${row[14]}</p>
+                            <p><strong>Priority:</strong> ${row[15]}</p>
+                            
+                            ${row[17] ? `
+                            <h4>Assignment Information</h4>
+                            <p><strong>Engineer:</strong> ${row[17]}</p>
+                            <p><strong>Engineer Contact:</strong> ${row[18]}</p>
+                            ${row[19] ? `<p><strong>Expected Completion:</strong> ${new Date(row[19]).toLocaleString()}</p>` : ''}
+                            ${row[20] ? `<p><strong>Time Spent:</strong> ${row[20]} minutes</p>` : ''}
+                            ${row[21] ? `<p><strong>Completion Notes:</strong> ${row[21]}</p>` : ''}
+                            ` : ''}
+                        </div>
+                    `;
+                    document.getElementById('ticketDetails').innerHTML = modalContent;
+                    document.getElementById('ticketModal').style.display = 'flex';
+                }
+                
+                stmt.free();
+            } catch (error) {
+                console.error("Error viewing details:", error);
+                showNotification("Error viewing details: " + error.message, "error");
+            }
+        }
+
+        // Admin update status
+        function adminUpdateStatus(callId) {
+            const currentStatus = db.exec(`SELECT status FROM ServiceCalls WHERE call_id = ${callId}`)[0].values[0][0];
+            const newStatus = prompt(`Current status: ${currentStatus}\nEnter new status (Pending, In Process, Closed):`);
+            
+            if (newStatus && ['Pending', 'In Process', 'Closed'].includes(newStatus)) {
+                try {
+                    const currentTime = getCurrentDateTime();
+                    
+                    if (newStatus === 'In Process' && currentStatus !== 'In Process') {
+                        db.exec(`UPDATE ServiceCalls SET status = 'In Process', started_at = '${currentTime}' WHERE call_id = ${callId}`);
+                    } else if (newStatus === 'Closed' && currentStatus !== 'Closed') {
+                        currentCallIdForTime = callId;
+                        document.getElementById('timeSpent').value = '';
+                        document.getElementById('completionNotes').value = '';
+                        document.getElementById('timeModal').style.display = 'flex';
+                        return;
+                    } else {
+                        db.exec(`UPDATE ServiceCalls SET status = '${newStatus}' WHERE call_id = ${callId}`);
+                    }
+                    
+                    saveDatabase();
+                    showNotification("Status updated successfully", "success");
+                    loadAdminCalls();
+                    loadUnassignedCalls();
+                } catch (error) {
+                    console.error("Error updating status:", error);
+                    showNotification("Error updating status: " + error.message, "error");
+                }
+            }
+        }
+
+        // Save time spent manually
+        function saveTimeSpent() {
+            if (!currentCallIdForTime) return;
+            
+            const timeSpent = document.getElementById('timeSpent').value;
+            const completionNotes = document.getElementById('completionNotes').value;
+            
+            if (!timeSpent || timeSpent < 1) {
+                showNotification("Please enter valid time spent", "error");
+                return;
+            }
+            
+            try {
+                const currentTime = getCurrentDateTime();
+                db.exec(`UPDATE ServiceCalls SET status = 'Closed', completed_at = '${currentTime}', time_spent_minutes = ${timeSpent}, completion_notes = '${completionNotes}' WHERE call_id = ${currentCallIdForTime}`);
+                
+                saveDatabase();
+                showNotification("Call completed successfully", "success");
+                closeTimeModal();
+                loadAdminCalls();
+                loadUnassignedCalls();
+            } catch (error) {
+                console.error("Error saving time spent:", error);
+                showNotification("Error saving time spent: " + error.message, "error");
+            }
+        }
+
+        // Admin delete call
+        function adminDeleteCall(callId) {
+            if (confirm("Are you sure you want to delete this service call? This action cannot be undone.")) {
+                try {
+                    // First delete assignments
+                    db.exec(`DELETE FROM Assignments WHERE call_id = ${callId}`);
+                    // Then delete the call
+                    db.exec(`DELETE FROM ServiceCalls WHERE call_id = ${callId}`);
+                    
+                    saveDatabase();
+                    showNotification("Service call deleted successfully", "success");
+                    loadAdminCalls();
+                    loadUnassignedCalls();
+                } catch (error) {
+                    console.error("Error deleting service call:", error);
+                    showNotification("Error deleting service call: " + error.message, "error");
+                }
+            }
+        }
+
+        // Admin assign calls
+        function adminAssignCalls() {
+            const engineerId = document.getElementById('adminEngineerSelect').value;
+            if (!engineerId) {
+                showNotification("Please select an engineer", "error");
+                return;
+            }
+            
+            const expectedDate = document.getElementById('adminExpectedDate').value;
+            const notes = document.getElementById('adminAssignNotes').value;
+            const currentTime = getCurrentDateTime();
+            
+            try {
+                const checkboxes = document.querySelectorAll('#adminUnassignedTableBody input[type="checkbox"]:checked');
+                if (checkboxes.length === 0) {
+                    showNotification("Please select at least one call to assign", "error");
+                    return;
+                }
+                
+                checkboxes.forEach(checkbox => {
+                    const callId = checkbox.value;
+                    
+                    // Create assignment
+                    const stmt = db.prepare(`
+                        INSERT INTO Assignments (call_id, engineer_id, assigned_at, expected_completion, notes)
+                        VALUES (?, ?, ?, ?, ?)
+                    `);
+                    stmt.bind([callId, engineerId, currentTime, expectedDate, notes]);
+                    stmt.step();
+                    stmt.free();
+                    
+                    // Update call status and assignment time
+                    db.exec(`UPDATE ServiceCalls SET status = 'In Process', assigned_at = '${currentTime}' WHERE call_id = ${callId}`);
+                });
+                
+                // Clear form
+                document.getElementById('adminExpectedDate').value = '';
+                document.getElementById('adminAssignNotes').value = '';
+                
+                saveDatabase();
+                showNotification(`${checkboxes.length} call(s) assigned successfully`, "success");
+                loadAdminCalls();
+                loadUnassignedCalls();
+                loadEngineers();
+            } catch (error) {
+                console.error("Error assigning calls:", error);
+                showNotification("Error assigning calls: " + error.message, "error");
+            }
+        }
+
+        // Add new engineer
+        document.getElementById('engineerForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('engineerName').value;
+            const contact = document.getElementById('engineerContact').value;
+            const email = document.getElementById('engineerEmail').value;
+            const specialization = document.getElementById('engineerSpecialization').value;
+            const currentTime = getCurrentDateTime();
+            
+            try {
+                const stmt = db.prepare(`
+                    INSERT INTO Engineers (name, contact_number, email, specialization, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                `);
+                stmt.bind([name, contact, email, specialization, currentTime]);
+                stmt.step();
+                stmt.free();
+                
+                // Reset form
+                this.reset();
+                
+                saveDatabase();
+                showNotification("Engineer added successfully", "success");
+                loadEngineers();
+            } catch (error) {
+                console.error("Error adding engineer:", error);
+                showNotification("Error adding engineer: " + error.message, "error");
+            }
+        });
+
+        // Edit engineer
+        function adminEditEngineer(engineerId) {
+            const newName = prompt("Enter new name:");
+            if (newName) {
+                try {
+                    const stmt = db.prepare("UPDATE Engineers SET name = ? WHERE engineer_id = ?");
+                    stmt.bind([newName, engineerId]);
+                    stmt.step();
+                    stmt.free();
+                    
+                    saveDatabase();
+                    showNotification("Engineer updated successfully", "success");
+                    loadEngineers();
+                } catch (error) {
+                    console.error("Error updating engineer:", error);
+                    showNotification("Error updating engineer: " + error.message, "error");
+                }
+            }
+        }
+
+        // Delete engineer
+        function adminDeleteEngineer(engineerId) {
+            if (confirm("Are you sure you want to delete this engineer?")) {
+                try {
+                    // First check if engineer has any assignments
+                    const checkStmt = db.prepare("SELECT COUNT(*) FROM Assignments WHERE engineer_id = ?");
+                    checkStmt.bind([engineerId]);
+                    checkStmt.step();
+                    const assignmentCount = checkStmt.get()[0];
+                    checkStmt.free();
+                    
+                    if (assignmentCount > 0) {
+                        showNotification("Cannot delete engineer with assigned calls", "error");
+                        return;
+                    }
+                    
+                    const stmt = db.prepare("DELETE FROM Engineers WHERE engineer_id = ?");
+                    stmt.bind([engineerId]);
+                    stmt.step();
+                    stmt.free();
+                    
+                    saveDatabase();
+                    showNotification("Engineer deleted successfully", "success");
+                    loadEngineers();
+                } catch (error) {
+                    console.error("Error deleting engineer:", error);
+                    showNotification("Error deleting engineer: " + error.message, "error");
+                }
+            }
+        }
+
+        // Export database
+        function exportDatabase() {
+            if (!dbInitialized) {
+                showNotification("Database not initialized", "error");
+                return;
+            }
+            
+            try {
+                const data = db.export();
+                const blob = new Blob([data], {type: 'application/octet-stream'});
+                const url = URL.createObjectURL(blob);
+                
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'service_calls_export.db';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showNotification("Database exported successfully", "success");
+            } catch (error) {
+                console.error("Error exporting database:", error);
+                showNotification("Error exporting database: " + error.message, "error");
+            }
+        }
+
+        // Import database
+        function importDatabase() {
+            document.getElementById('dbImportFile').click();
+        }
+
+        // Handle database import file selection
+        document.getElementById('dbImportFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function() {
+                try {
+                    const SQL = window.SQL;
+                    const uint8Array = new Uint8Array(reader.result);
+                    db = new SQL.Database(uint8Array);
+                    dbInitialized = true;
+                    
+                    // Save to localStorage
+                    const data = db.export();
+                    const arrayData = Array.from(data);
+                    localStorage.setItem('serviceCallDB', JSON.stringify(arrayData));
+                    
+                    updateDbStatus();
+                    loadAdminData();
+                    showNotification("Database imported successfully", "success");
+                } catch (error) {
+                    console.error("Error importing database:", error);
+                    showNotification("Error importing database: " + error.message, "error");
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        // Reset database
+        function resetDatabase() {
+            if (confirm("Are you sure you want to reset the database? ALL DATA WILL BE PERMANENTLY DELETED!")) {
+                try {
+                    // Clear localStorage
+                    localStorage.removeItem('serviceCallDB');
+                    
+                    // Reinitialize database
+                    db.close();
+                    db = new SQL.Database();
+                    createDatabaseStructure();
+                    dbInitialized = true;
+                    
+                    updateDbStatus();
+                    loadAdminData();
+                    showNotification("Database reset successfully", "success");
+                } catch (error) {
+                    console.error("Error resetting database:", error);
+                    showNotification("Error resetting database: " + error.message, "error");
+                }
+            }
+        }
+
+        // Update database status
+        function updateDbStatus() {
+            if (!dbInitialized) {
+                document.getElementById('dbStatus').innerHTML = `<p>Database not initialized</p>`;
+                return;
+            }
+            
+            try {
+                const customers = db.exec("SELECT COUNT(*) FROM Customers")[0].values[0][0];
+                const engineers = db.exec("SELECT COUNT(*) FROM Engineers")[0].values[0][0];
+                const calls = db.exec("SELECT COUNT(*) FROM ServiceCalls")[0].values[0][0];
+                const assignments = db.exec("SELECT COUNT(*) FROM Assignments")[0].values[0][0];
+                
+                document.getElementById('dbStatus').innerHTML = `
+                    <p><strong>Customers:</strong> ${customers}</p>
+                    <p><strong>Engineers:</strong> ${engineers}</p>
+                    <p><strong>Service Calls:</strong> ${calls}</p>
+                    <p><strong>Assignments:</strong> ${assignments}</p>
+                    <p><strong>Status:</strong> Operational</p>
+                    <p><strong>Storage:</strong> Local Browser Storage</p>
+                `;
+            } catch (error) {
+                console.error("Error checking database status:", error);
+                document.getElementById('dbStatus').innerHTML = `<p>Error checking database status</p>`;
+            }
+        }
+
+        // Filter admin calls
+        function filterAdminCalls() {
+            const statusFilter = document.getElementById('callStatusFilter').value;
+            const rows = document.querySelectorAll('#adminCallTableBody tr');
+            
+            rows.forEach(row => {
+                const status = row.querySelector('td:nth-child(6)').textContent;
+                
+                if (statusFilter === 'All' || status === statusFilter) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Initialize the database when page loads
+        initializeDatabase();
+    </script>
+</body>
+</html>
