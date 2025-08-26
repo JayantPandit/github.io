@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -100,7 +100,7 @@
                     <h2 class="text-2xl font-semibold text-gray-800">Service Call Dashboard</h2>
                     <button id="generate-report-btn" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white font-semibold transition-colors duration-200">Generate Report</button>
                 </div>
-                <div id="loading-spinner" class="text-center p-8 text-gray-500 hidden">
+                <div id="loading-spinner" class="text-center p-8 text-gray-500">
                     <svg class="animate-spin h-8 w-8 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -108,8 +108,21 @@
                     <p>Loading data...</p>
                 </div>
                 
-                <div id="admin-table-container" class="overflow-hidden rounded-lg shadow-md mt-6">
-                    <div class="h-[600px] overflow-y-scroll">
+                <!-- New section for adding engineers -->
+                <div class="p-6 rounded-lg bg-gray-100 mb-6">
+                    <h3 class="text-lg font-semibold mb-3 text-gray-800">Add New Engineer</h3>
+                    <form id="add-engineer-form" class="flex flex-col sm:flex-row gap-4 items-end">
+                        <div class="flex-grow">
+                            <label for="new-engineer-name" class="block text-sm font-medium text-gray-700">Engineer Name</label>
+                            <input type="text" id="new-engineer-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 p-2" required>
+                        </div>
+                        <button type="submit" class="px-6 py-2 bg-purple-500 hover:bg-purple-600 rounded-md text-white font-semibold transition-colors duration-200">Add Engineer</button>
+                    </form>
+                    <div id="engineer-message" class="mt-4 p-3 rounded-md text-sm text-center hidden"></div>
+                </div>
+
+                <div id="admin-table-container" class="overflow-hidden rounded-lg shadow-md mt-6 hidden">
+                    <div class="h-[600px] overflow-y-scroll" id="table-scroll-container">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50 sticky top-0">
                                 <tr>
@@ -179,19 +192,13 @@
     </main>
 </div>
 
-<!-- Firebase SDKs -->
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, addDoc, getDoc, doc, updateDoc, onSnapshot, query, setDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // Global variables for Firebase services
-    let app, auth, db, userId, APP_ID;
-    let unsubscribeAdminListener = null;
-    let cachedServiceCalls = []; // Store the data for the report
+<!-- All application logic is in a single script tag to make it self-contained -->
+<script>
+    // --- IMPORTANT: UPDATE THIS URL FOR PUBLIC HOSTING ---
+    // Change 'http://localhost:3000' to the actual URL of your deployed backend server.
+    // For example: const API_URL = 'https://your-backend-app.onrender.com/api';
+    const API_URL = 'http://localhost:3000/api';
     
-    // Engineers for the dropdown menu
-    const ENGINEERS = ["Akash Rathore", "Jayant Pandit", "Abhay Sharma"];
     // Status options for the dropdown menu
     const STATUS_OPTIONS = ["Open", "In-Progress", "Closed", "On Hold"];
     const ADMIN_PASSWORD = "654123";
@@ -221,7 +228,13 @@
     const remarkModal = document.getElementById('remark-modal');
     const remarkTextarea = document.getElementById('remark-textarea');
     const saveRemarkBtn = document.getElementById('save-remark-btn');
-    const cancelRemarkBtn = document.getElementById('cancel-remark-btn');
+    const cancelRemarkBtn = document = document.getElementById('cancel-remark-btn');
+    const adminTableContainer = document.getElementById('admin-table-container');
+
+    // New UI elements for adding engineers
+    const addEngineerForm = document.getElementById('add-engineer-form');
+    const newEngineerNameInput = document.getElementById('new-engineer-name');
+    const engineerMessageDiv = document.getElementById('engineer-message');
 
     // Utility to show the modal
     function showModal(title, body) {
@@ -240,10 +253,6 @@
         if (view === 'customer') {
             customerView.classList.remove('hidden');
             adminView.classList.add('hidden');
-            // Unsubscribe the listener when leaving admin view
-            if (unsubscribeAdminListener) {
-                unsubscribeAdminListener();
-            }
         } else {
             customerView.classList.add('hidden');
             adminView.classList.remove('hidden');
@@ -263,53 +272,15 @@
         if (password === ADMIN_PASSWORD) {
             adminLoginPanel.classList.add('hidden');
             adminDashboard.classList.remove('hidden');
-            loadingSpinner.classList.remove('hidden');
             loginMessage.textContent = '';
-            // Start listening for data ONLY after successful login
-            unsubscribeAdminListener = listenForServiceCalls();
+            // Load the dashboard data after successful login
+            fetchAndRenderAdminTable();
         } else {
             loginMessage.textContent = 'Invalid password. Please try again.';
             loginMessage.classList.remove('hidden');
             loginMessage.classList.add('bg-red-100', 'text-red-700');
         }
     });
-
-    // Initialize Firebase and Authentication
-    async function initializeFirebase() {
-        try {
-            // Use the global variables provided by the Canvas environment
-            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-            const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-            if (Object.keys(firebaseConfig).length === 0) {
-                showModal('Error', 'Firebase configuration is missing. The app cannot function without it.');
-                return;
-            }
-
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            
-            // Set the global APP_ID for use in other functions
-            APP_ID = appId;
-
-            // Authenticate the user
-            if (authToken) {
-                await signInWithCustomToken(auth, authToken);
-            } else {
-                await signInAnonymously(auth);
-            }
-
-            userId = auth.currentUser?.uid || 'anonymous-user';
-
-            console.log("Firebase initialized successfully. User ID:", userId);
-            
-        } catch (error) {
-            console.error("Error initializing Firebase:", error);
-            showModal('Error', 'Failed to initialize the application. Please try again.');
-        }
-    }
 
     // Handle new service request submission
     serviceRequestForm.addEventListener('submit', async (e) => {
@@ -321,64 +292,79 @@
         const issueDescription = document.getElementById('issue-description').value;
 
         try {
-            const serviceCallRef = collection(db, `artifacts/${APP_ID}/public/data/serviceCalls`);
-            const countersRef = doc(db, `artifacts/${APP_ID}/public/data/counters`, 'serviceCallId');
-
-            // Use a transaction to safely increment the counter
-            const newCallId = await runTransaction(db, async (transaction) => {
-                const counterDoc = await transaction.get(countersRef);
-                const currentId = counterDoc.exists() ? counterDoc.data().lastId : 0;
-                const nextId = currentId + 1;
-                const formattedId = "SR" + String(nextId).padStart(4, '0');
-                
-                // Update the counter for the next transaction
-                transaction.set(countersRef, { lastId: nextId });
-
-                // Create the new service call document with the new ID
-                const newDocRef = doc(serviceCallRef, formattedId);
-                transaction.set(newDocRef, {
-                    customerName,
-                    companyName,
-                    customerPhone,
-                    issueDescription,
-                    status: "Open",
-                    assignedTo: "Unassigned",
-                    createdAt: new Date().toISOString(),
-                    updates: [{ status: "Open", timestamp: new Date().toISOString(), updatedBy: "Customer" }]
-                });
-                
-                return formattedId;
+            const response = await fetch(`${API_URL}/calls`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ customerName, companyName, customerPhone, issueDescription }),
             });
-            
-            submissionMessage.textContent = `Your service request has been submitted! Your Service ID is: ${newCallId}. Please save this ID to check the status.`;
-            submissionMessage.classList.remove('hidden');
-            serviceRequestForm.reset();
+            const data = await response.json();
+
+            if (response.ok) {
+                submissionMessage.textContent = `Your service request has been submitted! Your Service ID is: ${data.id}. Please save this ID to check the status.`;
+                submissionMessage.classList.remove('hidden');
+                serviceRequestForm.reset();
+            } else {
+                showModal('Submission Failed', data.error || 'Something went wrong.');
+            }
         } catch (error) {
-            console.error("Transaction failed: ", error);
-            showModal('Error', 'Failed to submit your request. Please check your connection and try again.');
+            console.error('Submission error:', error);
+            showModal('Submission Error', 'Failed to connect to the server. Please ensure the backend is running.');
+        }
+    });
+
+    // Handle adding a new engineer
+    addEngineerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newEngineerName = newEngineerNameInput.value.trim();
+        if (!newEngineerName) return;
+
+        try {
+            const response = await fetch(`${API_URL}/engineers`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ name: newEngineerName }),
+            });
+            const data = await response.json();
+
+            if (response.ok) {
+                engineerMessageDiv.textContent = `"${data.name}" has been added successfully.`;
+                engineerMessageDiv.classList.remove('hidden');
+                engineerMessageDiv.classList.add('bg-green-100', 'text-green-700');
+                newEngineerNameInput.value = ''; // Clear the input
+                // Refresh the table to update dropdowns
+                fetchAndRenderAdminTable();
+            } else {
+                showModal('Error Adding Engineer', data.error || 'Something went wrong.');
+            }
+        } catch (error) {
+            console.error('Add engineer error:', error);
+            showModal('Error Adding Engineer', 'Failed to connect to the server.');
         }
     });
 
     // Check status of a single service request
     checkStatusBtn.addEventListener('click', async () => {
-        const callId = statusCheckIdInput.value.trim();
+        const callId = statusCheckIdInput.value.trim().toUpperCase();
         if (!callId) {
             showModal('Invalid ID', 'Please enter a valid Service ID.');
             return;
         }
 
         try {
-            const docRef = doc(db, `artifacts/${APP_ID}/public/data/serviceCalls`, callId);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const data = docSnap.data();
+            const response = await fetch(`${API_URL}/calls/${callId}`);
+            const call = await response.json();
+            
+            if (response.ok) {
                 statusResultDiv.innerHTML = `
-                    <p class="font-bold text-gray-800">Service ID: <span class="font-normal">${callId}</span></p>
-                    <p class="font-bold text-gray-800">Company Name: <span class="font-normal">${data.companyName}</span></p>
-                    <p class="font-bold text-gray-800">Status: <span class="font-normal">${data.status}</span></p>
-                    <p class="font-bold text-gray-800">Assigned Engineer: <span class="font-normal">${data.assignedTo}</span></p>
-                    <p class="font-bold text-gray-800">Issue: <span class="font-normal">${data.issueDescription}</span></p>
+                    <p class="font-bold text-gray-800">Service ID: <span class="font-normal">${call.id}</span></p>
+                    <p class="font-bold text-gray-800">Company Name: <span class="font-normal">${call.company_name}</span></p>
+                    <p class="font-bold text-gray-800">Status: <span class="font-normal">${call.status}</span></p>
+                    <p class="font-bold text-gray-800">Assigned Engineer: <span class="font-normal">${call.assigned_to}</span></p>
+                    <p class="font-bold text-gray-800">Issue: <span class="font-normal">${call.issue_description}</span></p>
                 `;
                 statusResultDiv.classList.remove('hidden');
             } else {
@@ -386,240 +372,208 @@
                 statusResultDiv.classList.remove('hidden');
             }
         } catch (error) {
-            console.error("Error fetching document:", error);
-            showModal('Error', 'Failed to check status. Please ensure the ID is correct and try again.');
+            console.error('Status check error:', error);
+            showModal('Error', 'Failed to connect to the server.');
         }
     });
 
-    // Update service call in Firestore
+    // Update service call on the backend
     async function updateServiceCall(callId, field, value, remark = null) {
         try {
-            const docRef = doc(db, `artifacts/${APP_ID}/public/data/serviceCalls`, callId);
-            const updateData = {};
+            const response = await fetch(`${API_URL}/calls/${callId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ field, value, remark }),
+            });
             
-            // Get the current document to append to the updates array
-            const docSnap = await getDoc(docRef);
-            if (!docSnap.exists()) {
-                console.error("Document not found for update:", callId);
-                showModal('Error', 'Service call not found for update.');
-                return;
+            if (!response.ok) {
+                const data = await response.json();
+                showModal('Update Failed', data.error || 'Something went wrong.');
             }
-
-            const currentData = docSnap.data();
-            const newUpdates = currentData.updates || [];
-
-            if (field === 'assignedTo') {
-                updateData.assignedTo = value;
-                newUpdates.push({
-                    assignedTo: value,
-                    timestamp: new Date().toISOString(),
-                    updatedBy: userId
-                });
-            } else if (field === 'status') {
-                updateData.status = value;
-                const updateEntry = {
-                    status: value,
-                    timestamp: new Date().toISOString(),
-                    updatedBy: userId
-                };
-                if (value === 'Closed') {
-                    updateData.closedAt = new Date().toISOString();
-                    updateData.completionRemark = remark;
-                    updateEntry.remark = remark;
-                }
-                newUpdates.push(updateEntry);
-            }
-            
-            updateData.updates = newUpdates;
-
-            await updateDoc(docRef, updateData);
+            fetchAndRenderAdminTable(); // Refresh the table after a successful update
         } catch (error) {
-            console.error("Error updating document:", error);
-            showModal('Error', 'Failed to update service call. Please try again.');
+            console.error('Update error:', error);
+            showModal('Update Error', 'Failed to connect to the server.');
         }
     }
-
-    // Render the admin dashboard table
-    function renderAdminTable(calls) {
+    
+    // Fetch and render the admin dashboard table
+    async function fetchAndRenderAdminTable() {
+        loadingSpinner.classList.remove('hidden');
+        adminTableContainer.classList.add('hidden');
         adminTableBody.innerHTML = '';
-        cachedServiceCalls = calls; // Cache the data for reporting
-        calls.forEach(call => {
-            const lastUpdate = call.updates.length > 0 ? new Date(call.updates[call.updates.length - 1].timestamp).toLocaleString() : 'N/A';
-            const row = document.createElement('tr');
-            row.classList.add('hover:bg-gray-100');
-            row.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate" style="max-width: 100px;">${call.id}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${call.customerName}</td>
-                <td class="px-6 py-4 whitespace-now-wrap text-sm text-gray-500 truncate" style="max-width: 150px;">${call.companyName || 'N/A'}</td>
-                <td class="px-6 py-4 text-sm text-gray-500 truncate" style="max-width: 200px;">${call.issueDescription}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <select class="status-select bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" data-id="${call.id}">
-                        ${STATUS_OPTIONS.map(status => `<option value="${status}" ${call.status === status ? 'selected' : ''}>${status}</option>`).join('')}
-                    </select>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <select class="engineer-select bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" data-id="${call.id}">
-                        <option value="Unassigned" ${call.assignedTo === "Unassigned" ? 'selected' : ''}>Unassigned</option>
-                        ${ENGINEERS.map(engineer => `<option value="${engineer}" ${call.assignedTo === engineer ? 'selected' : ''}>${engineer}</option>`).join('')}
-                    </select>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(call.createdAt).toLocaleString()}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${lastUpdate}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 cursor-pointer hover:underline" onclick="viewHistory('${call.id}')">View</td>
-            `;
-            adminTableBody.appendChild(row);
-        });
+        
+        try {
+            const [callsResponse, engineersResponse] = await Promise.all([
+                fetch(`${API_URL}/calls`),
+                fetch(`${API_URL}/engineers`)
+            ]);
+            const serviceCalls = await callsResponse.json();
+            const engineersList = await engineersResponse.json();
 
-        // Add event listeners to the new dropdowns
-        document.querySelectorAll('.status-select').forEach(select => {
-            select.addEventListener('change', (e) => {
-                const callId = e.target.dataset.id;
-                const newStatus = e.target.value;
-                const originalStatus = STATUS_OPTIONS.find(s => e.target.options[e.target.options.selectedIndex].text === s);
-                
-                if (newStatus === 'Closed') {
-                    // Show the remark modal
-                    remarkModal.classList.remove('hidden');
+            serviceCalls.forEach(call => {
+                const updates = call.updates || [];
+                const lastUpdate = updates.length > 0 ? new Date(updates[updates.length - 1].timestamp).toLocaleString() : 'N/A';
+                const row = document.createElement('tr');
+                row.classList.add('hover:bg-gray-100');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate" style="max-width: 100px;">${call.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${call.customer_name}</td>
+                    <td class="px-6 py-4 whitespace-now-wrap text-sm text-gray-500 truncate" style="max-width: 150px;">${call.company_name || 'N/A'}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500 truncate" style="max-width: 200px;">${call.issue_description}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <select class="status-select bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" data-id="${call.id}">
+                            ${STATUS_OPTIONS.map(status => `<option value="${status}" ${call.status === status ? 'selected' : ''}>${status}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <select class="engineer-select bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" data-id="${call.id}">
+                            <option value="Unassigned" ${call.assigned_to === "Unassigned" ? 'selected' : ''}>Unassigned</option>
+                            ${engineersList.map(engineer => `<option value="${engineer}" ${call.assigned_to === engineer ? 'selected' : ''}>${engineer}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(call.created_at).toLocaleString()}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${lastUpdate}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 cursor-pointer hover:underline" onclick="viewHistory('${call.id}')">View</td>
+                `;
+                adminTableBody.appendChild(row);
+            });
+
+            // Add event listeners to the new dropdowns
+            document.querySelectorAll('.status-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    const callId = e.target.dataset.id;
+                    const newStatus = e.target.value;
+                    const originalStatus = STATUS_OPTIONS.find(s => e.target.options[e.target.options.selectedIndex].text === s);
                     
-                    // Handle remark submission
-                    saveRemarkBtn.onclick = () => {
-                        const remark = remarkTextarea.value.trim();
-                        if (remark) {
-                            updateServiceCall(callId, 'status', newStatus, remark);
+                    if (newStatus === 'Closed') {
+                        remarkModal.classList.remove('hidden');
+                        
+                        saveRemarkBtn.onclick = () => {
+                            const remark = remarkTextarea.value.trim();
+                            if (remark) {
+                                updateServiceCall(callId, 'status', newStatus, remark);
+                                remarkModal.classList.add('hidden');
+                                remarkTextarea.value = '';
+                            } else {
+                                showModal('Remark Required', 'Please provide a completion remark before closing the request.');
+                            }
+                        };
+                        
+                        cancelRemarkBtn.onclick = () => {
+                            e.target.value = originalStatus;
                             remarkModal.classList.add('hidden');
-                            remarkTextarea.value = ''; // Clear textarea for next use
-                        } else {
-                            showModal('Remark Required', 'Please provide a completion remark before closing the request.');
-                        }
-                    };
-                    
-                    // Handle cancel button
-                    cancelRemarkBtn.onclick = () => {
-                        // Revert the dropdown to its original value if canceled
-                        e.target.value = originalStatus;
-                        remarkModal.classList.add('hidden');
-                        remarkTextarea.value = '';
-                    };
-                } else {
-                    updateServiceCall(callId, 'status', newStatus);
-                }
+                            remarkTextarea.value = '';
+                        };
+                    } else {
+                        updateServiceCall(callId, 'status', newStatus);
+                    }
+                });
             });
-        });
 
-        document.querySelectorAll('.engineer-select').forEach(select => {
-            select.addEventListener('change', (e) => {
-                const callId = e.target.dataset.id;
-                const newEngineer = e.target.value;
-                updateServiceCall(callId, 'assignedTo', newEngineer);
+            document.querySelectorAll('.engineer-select').forEach(select => {
+                select.addEventListener('change', (e) => {
+                    const callId = e.target.dataset.id;
+                    const newEngineer = e.target.value;
+                    updateServiceCall(callId, 'assignedTo', newEngineer);
+                });
             });
-        });
+            
+        } catch (error) {
+            console.error('Fetch error:', error);
+            showModal('Error', 'Failed to connect to the server. Please ensure the backend is running and the URL is correct.');
+        } finally {
+            loadingSpinner.classList.add('hidden');
+            adminTableContainer.classList.remove('hidden');
+        }
     }
     
     // Function to generate and download a CSV report
-    generateReportBtn.addEventListener('click', () => {
-        if (cachedServiceCalls.length === 0) {
-            showModal('Report Generation', 'There is no data to generate a report.');
-            return;
-        }
+    generateReportBtn.addEventListener('click', async () => {
+        try {
+            const response = await fetch(`${API_URL}/calls`);
+            if (!response.ok) {
+                showModal('Report Generation Failed', 'Failed to fetch data from the server.');
+                return;
+            }
+            const serviceCalls = await response.json();
 
-        const headers = ["ID", "Customer", "Company", "Issue", "Status", "Assigned To", "Created At", "Last Update", "Completion Remark"];
-        
-        // Map the cached data to a row for the CSV
-        const rows = cachedServiceCalls.map(call => [
-            `"${call.id}"`,
-            `"${call.customerName}"`,
-            `"${call.companyName || 'N/A'}"`,
-            `"${call.issueDescription.replace(/"/g, '""')}"`, // Handle quotes in description
-            `"${call.status}"`,
-            `"${call.assignedTo}"`,
-            `"${new Date(call.createdAt).toLocaleString()}"`,
-            `"${call.updates.length > 0 ? new Date(call.updates[call.updates.length - 1].timestamp).toLocaleString() : 'N/A'}"`,
-            `"${call.completionRemark ? call.completionRemark.replace(/"/g, '""') : 'N/A'}"`
-        ]);
-        
-        // Join headers and rows into a single CSV string
-        let csvContent = headers.join(",") + "\n" + rows.map(row => row.join(",")).join("\n");
-        
-        // Create and trigger a download link
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", "service_calls_report.csv");
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+            if (serviceCalls.length === 0) {
+                showModal('Report Generation', 'There is no data to generate a report.');
+                return;
+            }
+
+            const headers = ["ID", "Customer", "Company", "Issue", "Status", "Assigned To", "Created At", "Last Update", "Completion Remark"];
+            
+            const rows = serviceCalls.map(call => [
+                `"${call.id}"`,
+                `"${call.customer_name}"`,
+                `"${call.company_name || 'N/A'}"`,
+                `"${call.issue_description.replace(/"/g, '""')}"`,
+                `"${call.status}"`,
+                `"${call.assigned_to}"`,
+                `"${new Date(call.created_at).toLocaleString()}"`,
+                `"${(call.updates && call.updates.length > 0) ? new Date(call.updates[call.updates.length - 1].timestamp).toLocaleString() : 'N/A'}"`,
+                `"${call.completion_remark ? call.completion_remark.replace(/"/g, '""') : 'N/A'}"`
+            ]);
+            
+            let csvContent = headers.join(",") + "\n" + rows.map(row => row.join(",")).join("\n");
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "service_calls_report.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Report generation error:', error);
+            showModal('Report Error', 'Failed to generate report due to server error.');
+        }
     });
 
     // Function to view the history of a call
     window.viewHistory = async function(callId) {
         try {
-            const docRef = doc(db, `artifacts/${APP_ID}/public/data/serviceCalls`, callId);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                let historyContent = `<p class="mb-4">History for Service ID: <span class="font-bold">${callId}</span></p>`;
-                if (data.updates && data.updates.length > 0) {
-                    historyContent += `<ul class="list-disc list-inside space-y-1">`;
-                    data.updates.forEach(update => {
-                        historyContent += `<li><span class="font-semibold">${new Date(update.timestamp).toLocaleString()}:</span>`;
-                        if (update.status) {
-                            historyContent += ` Status changed to "${update.status}".`;
-                        }
-                        if (update.assignedTo && update.assignedTo !== "Unassigned") {
-                            historyContent += ` Assigned to: ${update.assignedTo}.`;
-                        }
-                        if (update.remark) {
-                            historyContent += ` Remark: ${update.remark}.`;
-                        }
-                        historyContent += ` Updated by: ${update.updatedBy}.</li>`;
-                    });
-                    historyContent += `</ul>`;
-                } else {
-                    historyContent += `<p>No history found for this request.</p>`;
-                }
-                showModal('Service Call History', historyContent);
-            } else {
+            const response = await fetch(`${API_URL}/calls/${callId}`);
+            if (!response.ok) {
                 showModal('Error', 'Service call not found.');
+                return;
             }
+            const call = await response.json();
+            const updates = call.updates || [];
+
+            let historyContent = `<p class="mb-4">History for Service ID: <span class="font-bold">${call.id}</span></p>`;
+            if (updates.length > 0) {
+                historyContent += `<ul class="list-disc list-inside space-y-1">`;
+                updates.forEach(update => {
+                    historyContent += `<li><span class="font-semibold">${new Date(update.timestamp).toLocaleString()}:</span>`;
+                    if (update.status) {
+                        historyContent += ` Status changed to "${update.status}".`;
+                    }
+                    if (update.assignedTo && update.assignedTo !== "Unassigned") {
+                        historyContent += ` Assigned to: ${update.assignedTo}.`;
+                    }
+                    if (update.remark) {
+                        historyContent += ` Remark: ${update.remark}.`;
+                    }
+                    historyContent += ` Updated by: ${update.updatedBy}.</li>`;
+                });
+                historyContent += `</ul>`;
+            } else {
+                historyContent += `<p>No history found for this request.</p>`;
+            }
+            showModal('Service Call History', historyContent);
         } catch (error) {
-            console.error("Error viewing history:", error);
-            showModal('Error', 'Failed to retrieve call history.');
+            console.error('History view error:', error);
+            showModal('Error', 'Failed to retrieve history from the server.');
         }
     }
 
-    // Real-time listener for the admin dashboard
-    function listenForServiceCalls() {
-        if (!db) return;
-
-        const callsRef = collection(db, `artifacts/${APP_ID}/public/data/serviceCalls`);
-        const q = query(callsRef);
-
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const serviceCalls = [];
-            querySnapshot.forEach((doc) => {
-                serviceCalls.push({ id: doc.id, ...doc.data() });
-            });
-            // Sort in memory to avoid Firestore index issues
-            serviceCalls.sort((a, b) => {
-                const dateA = a.updates && a.updates.length > 0 ? new Date(a.updates[a.updates.length - 1].timestamp) : new Date(a.createdAt);
-                const dateB = b.updates && b.updates.length > 0 ? new Date(b.updates[b.updates.length - 1].timestamp) : new Date(b.createdAt);
-                return dateB - dateA;
-            });
-            renderAdminTable(serviceCalls);
-            loadingSpinner.classList.add('hidden');
-        }, (error) => {
-            console.error("Error listening to service calls:", error);
-            loadingSpinner.classList.add('hidden');
-            showModal('Data Error', 'Failed to load real-time data from the database.');
-        });
-        return unsubscribe;
-    }
-
-    // Start the app when the window loads
-    window.onload = initializeFirebase;
 </script>
 
 </body>
