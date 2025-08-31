@@ -3,12 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Digital Diary - Spread your Knowledge with Your Friends/Groups</title>
+    <title>My Digital Diary - Spread your Knowledge with Your Friends/Groups (Cloud Edition)</title>
     <!-- Quill Rich Text Editor -->
     <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
     <!-- jsPDF for PDF export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Firebase App (required for Firebase products) -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -50,6 +56,7 @@
         button.import { background: #9c27b0; }
         button.category { background: #607d8b; }
         button.pdf { background: #e91e63; }
+        button.cloud { background: #2196F3; }
         .topic-item {
             padding: 8px;
             margin-bottom: 5px;
@@ -97,7 +104,7 @@
         .view-topic { cursor: pointer; flex-grow: 1; }
         #allTopicsTag { font-weight: bold; }
         
-        /* Topic viewer styles */
+        /* New styles for topic viewer */
         .topic-viewer {
             border: 1px solid #ddd;
             padding: 15px;
@@ -130,159 +137,159 @@
             background: white;
         }
         
-        /* Category management styles */
-        .category-management {
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #eee;
-        }
-        .category-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px;
-            margin: 5px 0;
-            background: #f5f5f5;
-            border-radius: 3px;
-        }
-        .category-actions {
-            display: flex;
-            gap: 5px;
-        }
-        .category-edit-btn {
-            background: #2196F3;
-            padding: 5px 10px;
-            font-size: 0.8em;
-        }
-        .category-delete-btn {
-            background: #f44336;
-            padding: 5px 10px;
-            font-size: 0.8em;
-        }
-        
-        /* Modal styles */
-        .modal {
-            display: none;
+        /* Auth styles */
+        .auth-container {
             position: fixed;
-            z-index: 1;
-            left: 0;
             top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.4);
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
         }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 15% auto;
+        .auth-box {
+            background: white;
             padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            max-width: 500px;
-            border-radius: 5px;
+            border-radius: 8px;
+            width: 300px;
         }
-        .close-modal {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
+        .auth-tabs {
+            display: flex;
+            margin-bottom: 15px;
+        }
+        .auth-tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
             cursor: pointer;
+            border-bottom: 2px solid #ddd;
         }
-        .close-modal:hover {
-            color: black;
+        .auth-tab.active {
+            border-bottom: 2px solid #4CAF50;
+            font-weight: bold;
         }
-        .modal-footer {
-            margin-top: 20px;
-            text-align: right;
+        .auth-form {
+            display: none;
+        }
+        .auth-form.active {
+            display: block;
+        }
+        .user-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
     </style>
 </head>
 <body>
-    <h1>My Digital Diary - Spread your Knowledge with Your Friends/Groups</h1>
-    
-    <div class="container">
-        <div class="panel">
-            <h2>Create/Edit Topic</h2>
-            <input type="text" id="topicTitle" placeholder="Title">
-            <select id="topicCategory">
-                <option value="">-- Select Category --</option>
-            </select>
-            <input type="text" id="newCategory" placeholder="New category name">
-            <button id="addCategoryBtn" class="category">Add Category</button>
-            
-            <div id="editor-container"></div>
-            
-            <div class="topic-viewer" id="topicViewer">
-                <div class="edit-bar">
-                    <h3 id="viewerTitle"></h3>
-                    <div>
-                        <button id="editTopicBtn">Edit</button>
-                        <button id="closeViewerBtn">Close</button>
-                    </div>
-                </div>
-                <div id="topicContent"></div>
+    <div id="authContainer" class="auth-container" style="display: none;">
+        <div class="auth-box">
+            <div class="auth-tabs">
+                <div class="auth-tab active" id="loginTab">Login</div>
+                <div class="auth-tab" id="registerTab">Register</div>
             </div>
             
-            <div class="button-group">
-                <button id="saveBtn">Save</button>
-                <button id="newBtn">New</button>
-                <button id="deleteBtn" class="delete">Delete</button>
+            <div id="loginForm" class="auth-form active">
+                <h3>Login</h3>
+                <input type="email" id="loginEmail" placeholder="Email">
+                <input type="password" id="loginPassword" placeholder="Password">
+                <button id="loginBtn">Login</button>
+                <div id="loginError" style="color: red; margin-top: 10px;"></div>
             </div>
             
-            <div class="category-management">
-                <h3>Category Management</h3>
-                <div id="categoryList"></div>
+            <div id="registerForm" class="auth-form">
+                <h3>Register</h3>
+                <input type="email" id="registerEmail" placeholder="Email">
+                <input type="password" id="registerPassword" placeholder="Password (min 6 chars)">
+                <button id="registerBtn">Register</button>
+                <div id="registerError" style="color: red; margin-top: 10px;"></div>
             </div>
-            
-            <h2>Import/Export</h2>
-            <button id="exportAllBtn" class="export">Export All</button>
-            <button id="exportSelectedBtn" class="export">Export Selected</button>
-            <button id="importBtn" class="import">Import</button>
-            <input type="file" id="fileInput" style="display:none">
-            
-            <h2>Search</h2>
-            <input type="text" id="searchInput" placeholder="Search...">
-            <button id="searchBtn">Search</button>
-        </div>
-        
-        <div class="panel">
-            <h2>Topics</h2>
-            <div class="category-filter">
-                <span class="category-tag active" id="allTopicsTag" data-category="">All Topics</span>
-            </div>
-            <div id="topicList"></div>
-            <div id="searchResults" class="search-results"></div>
         </div>
     </div>
 
-    <!-- Edit Category Modal -->
-    <div id="editCategoryModal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <h3>Edit Category</h3>
-            <input type="text" id="editCategoryName" placeholder="Category name">
-            <div class="modal-footer">
-                <button id="saveEditCategoryBtn">Save Changes</button>
-            </div>
+    <div id="appContent" style="display: none;">
+        <div class="user-info">
+            <span id="userEmail"></span>
+            <button id="logoutBtn">Logout</button>
         </div>
-    </div>
-    
-    <!-- Delete Category Modal -->
-    <div id="deleteCategoryModal" class="modal">
-        <div class="modal-content">
-            <span class="close-modal">&times;</span>
-            <h3>Delete Category</h3>
-            <div id="deleteCategoryMessage"></div>
-            <div id="reassignCategorySection" style="display: none; margin-top: 15px;">
-                <p>Please select a new category for affected topics:</p>
-                <select id="reassignCategorySelect" style="width: 100%; margin-bottom: 15px;"></select>
+        
+        <h1>Advanced Topic Manager (Cloud Edition)</h1>
+        
+        <div class="container">
+            <div class="panel">
+                <h2>Create/Edit Topic</h2>
+                <input type="text" id="topicTitle" placeholder="Title">
+                <select id="topicCategory">
+                    <option value="">-- Select Category --</option>
+                </select>
+                <input type="text" id="newCategory" placeholder="New category name">
+                <button id="addCategoryBtn" class="category">Add Category</button>
+                
+                <div id="editor-container"></div>
+                
+                <div class="topic-viewer" id="topicViewer">
+                    <div class="edit-bar">
+                        <h3 id="viewerTitle"></h3>
+                        <div>
+                            <button id="editTopicBtn">Edit</button>
+                            <button id="closeViewerBtn">Close</button>
+                        </div>
+                    </div>
+                    <div id="topicContent"></div>
+                </div>
+                
+                <div class="button-group">
+                    <button id="saveBtn">Save</button>
+                    <button id="newBtn">New</button>
+                    <button id="deleteBtn" class="delete">Delete</button>
+                </div>
+                
+                <h2>Import/Export</h2>
+                <button id="exportAllBtn" class="export">Export All</button>
+                <button id="exportSelectedBtn" class="export">Export Selected</button>
+                <button id="importBtn" class="import">Import</button>
+                <input type="file" id="fileInput" style="display:none">
+                
+                <h2>Search</h2>
+                <input type="text" id="searchInput" placeholder="Search...">
+                <button id="searchBtn">Search</button>
             </div>
-            <div class="modal-footer">
-                <button id="confirmDeleteCategoryBtn" class="delete">Confirm Delete</button>
+            
+            <div class="panel">
+                <h2>Topics</h2>
+                <div class="category-filter">
+                    <span class="category-tag active" id="allTopicsTag" data-category="">All Topics</span>
+                </div>
+                <div id="topicList"></div>
+                <div id="searchResults" class="search-results"></div>
             </div>
         </div>
     </div>
 
     <script>
+        // Firebase configuration - Replace with your own config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAn7Arht0D2u5Efq8kAgZrfRKjYhjYfgQg",
+  authDomain: "topicmanager-5c6dd.firebaseapp.com",
+  projectId: "topicmanager-5c6dd",
+  storageBucket: "topicmanager-5c6dd.firebasestorage.app",
+  messagingSenderId: "1015877032691",
+  appId: "1:1015877032691:web:6b41ae3338034d79847586",
+  measurementId: "G-7YZBGNCFR8"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        
         // Initialize Quill editor
         const quill = new Quill('#editor-container', {
             theme: 'snow',
@@ -310,100 +317,24 @@
         // Initialize jsPDF
         const { jsPDF } = window.jspdf;
 
-        // Database using localStorage
-        const db = {
-            getData: () => {
-                const data = JSON.parse(localStorage.getItem('topicData')) || { topics: [], categories: [] };
-                // Ensure all topics have required fields
-                data.topics = data.topics.map(topic => ({
-                    id: topic.id || Date.now().toString(),
-                    title: topic.title || 'Untitled',
-                    content: topic.content || '',
-                    category: topic.category || '',
-                    updatedAt: topic.updatedAt || new Date().toISOString(),
-                    createdAt: topic.createdAt || new Date().toISOString()
-                }));
-                return data;
-            },
-            saveData: (data) => localStorage.setItem('topicData', JSON.stringify(data)),
-            
-            addTopic: (topic) => {
-                const data = db.getData();
-                data.topics.push(topic);
-                db.saveData(data);
-            },
-            
-            updateTopic: (id, updates) => {
-                const data = db.getData();
-                const index = data.topics.findIndex(t => t.id === id);
-                if (index !== -1) {
-                    data.topics[index] = { ...data.topics[index], ...updates };
-                    db.saveData(data);
-                }
-            },
-            
-            deleteTopic: (id) => {
-                const data = db.getData();
-                data.topics = data.topics.filter(t => t.id !== id);
-                db.saveData(data);
-            },
-            
-            addCategory: (name) => {
-                if (!name) return;
-                const data = db.getData();
-                if (!data.categories.includes(name)) {
-                    data.categories.push(name);
-                    db.saveData(data);
-                }
-            },
-            
-            updateCategory: (oldName, newName) => {
-                if (!oldName || !newName) return;
-                const data = db.getData();
-                
-                // Update category name in categories array
-                const catIndex = data.categories.indexOf(oldName);
-                if (catIndex !== -1) {
-                    data.categories[catIndex] = newName;
-                }
-                
-                // Update category in all topics
-                data.topics = data.topics.map(topic => {
-                    if (topic.category === oldName) {
-                        return { ...topic, category: newName };
-                    }
-                    return topic;
-                });
-                
-                db.saveData(data);
-            },
-            
-            deleteCategory: (name, reassignTo = '') => {
-                if (!name) return;
-                const data = db.getData();
-                
-                // Remove category from categories array
-                data.categories = data.categories.filter(c => c !== name);
-                
-                // Update topics that had this category
-                data.topics = data.topics.map(topic => {
-                    if (topic.category === name) {
-                        return { ...topic, category: reassignTo };
-                    }
-                    return topic;
-                });
-                
-                db.saveData(data);
-            },
-            
-            getTopicsByCategory: (category) => {
-                const data = db.getData();
-                return data.topics.filter(t => t.category === category);
-            }
-        };
-
         // DOM Elements
         const el = {
+            authContainer: document.getElementById('authContainer'),
+            appContent: document.getElementById('appContent'),
+            loginTab: document.getElementById('loginTab'),
+            registerTab: document.getElementById('registerTab'),
+            loginForm: document.getElementById('loginForm'),
+            registerForm: document.getElementById('registerForm'),
+            loginEmail: document.getElementById('loginEmail'),
+            loginPassword: document.getElementById('loginPassword'),
+            loginBtn: document.getElementById('loginBtn'),
+            loginError: document.getElementById('loginError'),
+            registerEmail: document.getElementById('registerEmail'),
+            registerPassword: document.getElementById('registerPassword'),
+            registerBtn: document.getElementById('registerBtn'),
+            registerError: document.getElementById('registerError'),
+            userEmail: document.getElementById('userEmail'),
+            logoutBtn: document.getElementById('logoutBtn'),
             title: document.getElementById('topicTitle'),
             category: document.getElementById('topicCategory'),
             newCategory: document.getElementById('newCategory'),
@@ -425,29 +356,117 @@
             viewerTitle: document.getElementById('viewerTitle'),
             topicContent: document.getElementById('topicContent'),
             editTopicBtn: document.getElementById('editTopicBtn'),
-            closeViewerBtn: document.getElementById('closeViewerBtn'),
-            categoryList: document.getElementById('categoryList'),
-            editCategoryModal: document.getElementById('editCategoryModal'),
-            editCategoryName: document.getElementById('editCategoryName'),
-            saveEditCategoryBtn: document.getElementById('saveEditCategoryBtn'),
-            deleteCategoryModal: document.getElementById('deleteCategoryModal'),
-            deleteCategoryMessage: document.getElementById('deleteCategoryMessage'),
-            reassignCategorySection: document.getElementById('reassignCategorySection'),
-            reassignCategorySelect: document.getElementById('reassignCategorySelect'),
-            confirmDeleteCategoryBtn: document.getElementById('confirmDeleteCategoryBtn'),
-            closeModalBtns: document.querySelectorAll('.close-modal')
+            closeViewerBtn: document.getElementById('closeViewerBtn')
         };
 
         let currentTopicId = null;
         let selectedCategory = '';
-        let currentCategoryBeingEdited = null;
-        let currentCategoryBeingDeleted = null;
+        let currentUser = null;
+        let topics = [];
+        let categories = [];
 
-        // Load categories into dropdown and display them
+        // Auth functions
+        function showAuth() {
+            el.authContainer.style.display = 'flex';
+            el.appContent.style.display = 'none';
+        }
+
+        function showApp() {
+            el.authContainer.style.display = 'none';
+            el.appContent.style.display = 'block';
+        }
+
+        // Auth event listeners
+        el.loginTab.addEventListener('click', () => {
+            el.loginTab.classList.add('active');
+            el.registerTab.classList.remove('active');
+            el.loginForm.classList.add('active');
+            el.registerForm.classList.remove('active');
+        });
+
+        el.registerTab.addEventListener('click', () => {
+            el.registerTab.classList.add('active');
+            el.loginTab.classList.remove('active');
+            el.registerForm.classList.add('active');
+            el.loginForm.classList.remove('active');
+        });
+
+        el.loginBtn.addEventListener('click', async () => {
+            const email = el.loginEmail.value;
+            const password = el.loginPassword.value;
+            
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                el.loginError.textContent = '';
+            } catch (error) {
+                el.loginError.textContent = error.message;
+            }
+        });
+
+        el.registerBtn.addEventListener('click', async () => {
+            const email = el.registerEmail.value;
+            const password = el.registerPassword.value;
+            
+            try {
+                await auth.createUserWithEmailAndPassword(email, password);
+                el.registerError.textContent = '';
+            } catch (error) {
+                el.registerError.textContent = error.message;
+            }
+        });
+
+        el.logoutBtn.addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        // Auth state listener
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                currentUser = user;
+                el.userEmail.textContent = user.email;
+                showApp();
+                await loadData();
+            } else {
+                currentUser = null;
+                showAuth();
+            }
+        });
+
+        // Load data from Firestore
+        async function loadData() {
+            if (!currentUser) return;
+            
+            // Load categories
+            const categoriesSnapshot = await db.collection('users')
+                .doc(currentUser.uid)
+                .collection('categories')
+                .get();
+                
+            categories = [];
+            categoriesSnapshot.forEach(doc => {
+                categories.push(doc.data().name);
+            });
+            
+            // Load topics
+            const topicsSnapshot = await db.collection('users')
+                .doc(currentUser.uid)
+                .collection('topics')
+                .orderBy('updatedAt', 'desc')
+                .get();
+                
+            topics = [];
+            topicsSnapshot.forEach(doc => {
+                topics.push({ id: doc.id, ...doc.data() });
+            });
+            
+            loadCategories();
+            displayTopics();
+        }
+
+        // Load categories into dropdown
         function loadCategories() {
-            const data = db.getData();
             el.category.innerHTML = '<option value="">-- Select Category --</option>';
-            data.categories.forEach(cat => {
+            categories.forEach(cat => {
                 const option = document.createElement('option');
                 option.value = cat;
                 option.textContent = cat;
@@ -464,7 +483,7 @@
             allSpan.addEventListener('click', () => filterByCategory(''));
             el.categoryFilter.appendChild(allSpan);
             
-            data.categories.forEach(cat => {
+            categories.forEach(cat => {
                 const span = document.createElement('span');
                 span.className = 'category-tag';
                 if (cat === selectedCategory) span.classList.add('active');
@@ -473,72 +492,25 @@
                 span.addEventListener('click', () => filterByCategory(cat));
                 el.categoryFilter.appendChild(span);
             });
-            
-            // Display categories in management section
-            displayCategories();
-        }
-
-        // Display categories in the management section
-        function displayCategories() {
-            const data = db.getData();
-            el.categoryList.innerHTML = '';
-            
-            if (data.categories.length === 0) {
-                el.categoryList.innerHTML = '<p>No categories yet</p>';
-                return;
-            }
-            
-            data.categories.forEach(category => {
-                const div = document.createElement('div');
-                div.className = 'category-item';
-                
-                const nameSpan = document.createElement('span');
-                nameSpan.textContent = category;
-                
-                const actionsDiv = document.createElement('div');
-                actionsDiv.className = 'category-actions';
-                
-                const editBtn = document.createElement('button');
-                editBtn.className = 'category-edit-btn';
-                editBtn.textContent = 'Edit';
-                editBtn.addEventListener('click', () => openEditCategoryModal(category));
-                
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'category-delete-btn';
-                deleteBtn.textContent = 'Delete';
-                deleteBtn.addEventListener('click', () => openDeleteCategoryModal(category));
-                
-                actionsDiv.appendChild(editBtn);
-                actionsDiv.appendChild(deleteBtn);
-                
-                div.appendChild(nameSpan);
-                div.appendChild(actionsDiv);
-                
-                el.categoryList.appendChild(div);
-            });
         }
 
         // Display topics with proper filtering
         function displayTopics() {
-            const data = db.getData();
-            let topics = data.topics;
+            let filteredTopics = topics;
             
             // Filter by category if one is selected (empty string shows all)
             if (selectedCategory !== '') {
-                topics = topics.filter(t => t.category === selectedCategory);
+                filteredTopics = filteredTopics.filter(t => t.category === selectedCategory);
             }
-            
-            // Sort by updatedAt (newest first)
-            topics.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
             
             el.topicList.innerHTML = '';
             
-            if (topics.length === 0) {
+            if (filteredTopics.length === 0) {
                 el.topicList.innerHTML = '<p>No topics found</p>';
                 return;
             }
             
-            topics.forEach(topic => {
+            filteredTopics.forEach(topic => {
                 const div = document.createElement('div');
                 div.className = 'topic-item';
                 div.dataset.id = topic.id;
@@ -598,7 +570,7 @@
 
         // View topic in read-only mode
         function viewTopic(id) {
-            const topic = db.getData().topics.find(t => t.id === id);
+            const topic = topics.find(t => t.id === id);
             if (topic) {
                 currentTopicId = id;
                 el.viewerTitle.textContent = topic.title;
@@ -620,7 +592,7 @@
 
         // Edit existing topic
         function editTopic() {
-            const topic = db.getData().topics.find(t => t.id === currentTopicId);
+            const topic = topics.find(t => t.id === currentTopicId);
             if (topic) {
                 el.title.value = topic.title;
                 el.category.value = topic.category || '';
@@ -637,50 +609,105 @@
         }
 
         // Save topic
-        function saveTopic() {
+        async function saveTopic() {
+            if (!currentUser) return;
+            
             const title = el.title.value.trim();
             if (!title) return alert('Title is required');
             
             const content = quill.root.innerHTML;
             const category = el.category.value || '';
             
-            const topic = {
-                id: currentTopicId || Date.now().toString(),
+            const topicData = {
                 title,
                 content,
                 category,
-                updatedAt: new Date().toISOString(),
-                createdAt: currentTopicId ? undefined : new Date().toISOString()
+                updatedAt: new Date().toISOString()
             };
             
-            if (currentTopicId) {
-                db.updateTopic(currentTopicId, topic);
-            } else {
-                db.addTopic(topic);
+            try {
+                if (currentTopicId) {
+                    // Update existing topic
+                    await db.collection('users')
+                        .doc(currentUser.uid)
+                        .collection('topics')
+                        .doc(currentTopicId)
+                        .update(topicData);
+                        
+                    // Update local data
+                    const index = topics.findIndex(t => t.id === currentTopicId);
+                    if (index !== -1) {
+                        topics[index] = { ...topics[index], ...topicData };
+                    }
+                } else {
+                    // Create new topic
+                    topicData.createdAt = new Date().toISOString();
+                    const docRef = await db.collection('users')
+                        .doc(currentUser.uid)
+                        .collection('topics')
+                        .add(topicData);
+                    
+                    // Add to local data
+                    topics.push({ id: docRef.id, ...topicData });
+                }
+                
+                resetForm();
+                loadCategories();
+                displayTopics();
+            } catch (error) {
+                console.error("Error saving topic:", error);
+                alert("Error saving topic. Please try again.");
             }
-            
-            resetForm();
-            loadCategories();
-            displayTopics();
         }
 
         // Add new category
-        function addCategory() {
+        async function addCategory() {
+            if (!currentUser) return;
+            
             const name = el.newCategory.value.trim();
             if (!name) return;
             
-            db.addCategory(name);
-            el.newCategory.value = '';
-            loadCategories();
+            if (!categories.includes(name)) {
+                try {
+                    // Add to Firestore
+                    await db.collection('users')
+                        .doc(currentUser.uid)
+                        .collection('categories')
+                        .add({ name });
+                    
+                    // Add to local data
+                    categories.push(name);
+                    el.newCategory.value = '';
+                    loadCategories();
+                } catch (error) {
+                    console.error("Error adding category:", error);
+                    alert("Error adding category. Please try again.");
+                }
+            }
         }
 
         // Delete topic
-        function deleteTopic() {
-            if (!currentTopicId) return alert('No topic selected');
+        async function deleteTopic() {
+            if (!currentUser || !currentTopicId) return alert('No topic selected');
+            
             if (confirm('Delete this topic?')) {
-                db.deleteTopic(currentTopicId);
-                resetForm();
-                displayTopics();
+                try {
+                    // Delete from Firestore
+                    await db.collection('users')
+                        .doc(currentUser.uid)
+                        .collection('topics')
+                        .doc(currentTopicId)
+                        .delete();
+                    
+                    // Remove from local data
+                    topics = topics.filter(t => t.id !== currentTopicId);
+                    
+                    resetForm();
+                    displayTopics();
+                } catch (error) {
+                    console.error("Error deleting topic:", error);
+                    alert("Error deleting topic. Please try again.");
+                }
             }
         }
 
@@ -747,7 +774,6 @@
 
         // Export all topics
         function exportAllTopics() {
-            const topics = db.getData().topics;
             if (topics.length === 0) return alert('No topics to export');
             
             const json = JSON.stringify(topics, null, 2);
@@ -766,9 +792,8 @@
             const selected = Array.from(document.querySelectorAll('.topic-select:checked'));
             if (selected.length === 0) return alert('No topics selected');
             
-            const data = db.getData();
             const topicsToExport = selected.map(checkbox => {
-                return data.topics.find(t => t.id === checkbox.dataset.id);
+                return topics.find(t => t.id === checkbox.dataset.id);
             }).filter(Boolean);
             
             const json = JSON.stringify(topicsToExport, null, 2);
@@ -807,8 +832,10 @@
         });
 
         // Import topic selection
-        function importTopicSelection(importedTopics) {
-            const existingIds = db.getData().topics.map(t => t.id);
+        async function importTopicSelection(importedTopics) {
+            if (!currentUser) return;
+            
+            const existingIds = topics.map(t => t.id);
             const newTopics = importedTopics.filter(t => !existingIds.includes(t.id));
             
             if (newTopics.length === 0) {
@@ -846,11 +873,10 @@
                 });
             });
             
-            document.getElementById('confirmImport').addEventListener('click', () => {
+            document.getElementById('confirmImport').addEventListener('click', async () => {
                 const selected = Array.from(document.querySelectorAll('.import-checkbox:checked'));
                 if (selected.length === 0) return alert('No topics selected');
                 
-                const data = db.getData();
                 const topicsToImport = newTopics.filter(t => 
                     selected.some(s => s.id === `imp-${t.id}`)
                 ).map(topic => ({
@@ -864,20 +890,42 @@
                     createdAt: topic.createdAt || new Date().toISOString()
                 }));
                 
-                // Add any new categories
-                topicsToImport.forEach(topic => {
-                    if (topic.category && !data.categories.includes(topic.category)) {
-                        data.categories.push(topic.category);
-                    }
-                });
-                
-                data.topics = [...data.topics, ...topicsToImport];
-                db.saveData(data);
-                
-                el.searchResults.innerHTML = `<p>Successfully imported ${topicsToImport.length} topics</p>`;
-                loadCategories();
-                displayTopics();
-                el.fileInput.value = '';
+                try {
+                    // Add to Firestore
+                    const batch = db.batch();
+                    const userRef = db.collection('users').doc(currentUser.uid);
+                    
+                    topicsToImport.forEach(topic => {
+                        const topicRef = userRef.collection('topics').doc(topic.id);
+                        batch.set(topicRef, {
+                            title: topic.title,
+                            content: topic.content,
+                            category: topic.category,
+                            createdAt: topic.createdAt,
+                            updatedAt: topic.updatedAt
+                        });
+                        
+                        // Add category if it doesn't exist
+                        if (topic.category && !categories.includes(topic.category)) {
+                            categories.push(topic.category);
+                            const categoryRef = userRef.collection('categories').doc();
+                            batch.set(categoryRef, { name: topic.category });
+                        }
+                    });
+                    
+                    await batch.commit();
+                    
+                    // Add to local data
+                    topics = [...topics, ...topicsToImport];
+                    
+                    el.searchResults.innerHTML = `<p>Successfully imported ${topicsToImport.length} topics</p>`;
+                    loadCategories();
+                    displayTopics();
+                    el.fileInput.value = '';
+                } catch (error) {
+                    console.error("Error importing topics:", error);
+                    alert("Error importing topics. Please try again.");
+                }
             });
         }
 
@@ -889,7 +937,7 @@
                 return;
             }
             
-            const results = db.getData().topics.filter(topic => 
+            const results = topics.filter(topic => 
                 (topic.title && topic.title.toLowerCase().includes(query)) || 
                 (topic.content && topic.content.toLowerCase().includes(query)) ||
                 (topic.category && topic.category.toLowerCase().includes(query))
@@ -923,69 +971,6 @@
             });
         }
 
-        // Open edit category modal
-        function openEditCategoryModal(category) {
-            currentCategoryBeingEdited = category;
-            el.editCategoryName.value = category;
-            el.editCategoryModal.style.display = 'block';
-        }
-
-        // Open delete category modal
-        function openDeleteCategoryModal(category) {
-            currentCategoryBeingDeleted = category;
-            const topicsInCategory = db.getTopicsByCategory(category);
-            
-            if (topicsInCategory.length > 0) {
-                el.deleteCategoryMessage.innerHTML = `
-                    <p>This category has ${topicsInCategory.length} topic(s).</p>
-                    <p>You need to reassign these topics before deleting the category.</p>
-                `;
-                el.reassignCategorySection.style.display = 'block';
-                
-                // Populate the reassign select
-                const data = db.getData();
-                el.reassignCategorySelect.innerHTML = '<option value="">-- Uncategorized --</option>';
-                data.categories.filter(c => c !== category).forEach(cat => {
-                    const option = document.createElement('option');
-                    option.value = cat;
-                    option.textContent = cat;
-                    el.reassignCategorySelect.appendChild(option);
-                });
-            } else {
-                el.deleteCategoryMessage.innerHTML = '<p>Are you sure you want to delete this category?</p>';
-                el.reassignCategorySection.style.display = 'none';
-            }
-            
-            el.deleteCategoryModal.style.display = 'block';
-        }
-
-        // Close all modals
-        function closeModals() {
-            el.editCategoryModal.style.display = 'none';
-            el.deleteCategoryModal.style.display = 'none';
-        }
-
-        // Save category changes
-        function saveCategoryChanges() {
-            const newName = el.editCategoryName.value.trim();
-            if (!newName) return alert('Category name cannot be empty');
-            if (newName === currentCategoryBeingEdited) return closeModals();
-            
-            db.updateCategory(currentCategoryBeingEdited, newName);
-            closeModals();
-            loadCategories();
-            displayTopics();
-        }
-
-        // Delete category with validation
-        function deleteCategory() {
-            const reassignTo = el.reassignCategorySelect.value || '';
-            db.deleteCategory(currentCategoryBeingDeleted, reassignTo);
-            closeModals();
-            loadCategories();
-            displayTopics();
-        }
-
         // Event Listeners
         el.saveBtn.addEventListener('click', saveTopic);
         el.newBtn.addEventListener('click', resetForm);
@@ -1006,25 +991,9 @@
             document.querySelector('#editor-container .ql-toolbar').style.display = '';
             document.querySelector('#editor-container .ql-container').style.border = '';
         });
-        el.saveEditCategoryBtn.addEventListener('click', saveCategoryChanges);
-        el.confirmDeleteCategoryBtn.addEventListener('click', deleteCategory);
-        el.closeModalBtns.forEach(btn => {
-            btn.addEventListener('click', closeModals);
-        });
-        
-        // Close modals when clicking outside
-        window.addEventListener('click', (event) => {
-            if (event.target === el.editCategoryModal) {
-                closeModals();
-            }
-            if (event.target === el.deleteCategoryModal) {
-                closeModals();
-            }
-        });
 
-        // Initialize
-        loadCategories();
-        displayTopics();
+        // Show auth by default
+        showAuth();
     </script>
 </body>
 </html>
