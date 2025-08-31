@@ -1,580 +1,1030 @@
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Service Call Manager</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>My Digital Diary - Spread your Knowledge with Your Friends/Groups</title>
+    <!-- Quill Rich Text Editor -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    <!-- jsPDF for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
         .container {
-            max-width: 1200px;
-            margin: auto;
-            padding: 2rem;
+            display: flex;
+            gap: 20px;
         }
-        /* Custom scrollbar for table body */
-        #admin-table-body::-webkit-scrollbar {
-            width: 8px;
+        .panel {
+            flex: 1;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        #admin-table-body::-webkit-scrollbar-track {
-            background: #e5e7eb;
-            border-radius: 10px;
+        input, select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
-        #admin-table-body::-webkit-scrollbar-thumb {
-            background: #9ca3af;
-            border-radius: 10px;
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 5px;
+            margin-bottom: 5px;
         }
-        #admin-table-body::-webkit-scrollbar-thumb:hover {
-            background: #6b7280;
+        button.delete { background: #f44336; }
+        button.export { background: #ff9800; }
+        button.import { background: #9c27b0; }
+        button.category { background: #607d8b; }
+        button.pdf { background: #e91e63; }
+        .topic-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            background: #f9f9f9;
+            border-left: 4px solid #4CAF50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .hidden {
+        .topic-item:hover { background: #eee; }
+        .topic-category {
+            font-size: 0.8em;
+            background: #e0e0e0;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .category-filter {
+            margin-bottom: 15px;
+        }
+        .category-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            font-size: 0.8em;
+            cursor: pointer;
+            margin-right: 5px;
+        }
+        .category-tag:hover { background: #bdbdbd; }
+        .category-tag.active {
+            background: #4CAF50;
+            color: white;
+        }
+        .search-results { margin-top: 20px; }
+        #editor-container {
+            height: 300px;
+            margin-bottom: 15px;
+        }
+        .topic-actions { display: flex; gap: 5px; }
+        .action-btn {
+            padding: 2px 6px;
+            font-size: 0.8em;
+        }
+        .topic-select { margin-right: 10px; }
+        .view-topic { cursor: pointer; flex-grow: 1; }
+        #allTopicsTag { font-weight: bold; }
+        
+        /* Topic viewer styles */
+        .topic-viewer {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 15px;
+            background: white;
+            border-radius: 5px;
             display: none;
+        }
+        .edit-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .view-mode .ql-toolbar {
+            display: none;
+        }
+        .view-mode .ql-container {
+            border: none;
+        }
+        .view-mode .ql-editor {
+            padding: 0;
+        }
+        #topicContent {
+            min-height: 200px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        
+        /* Category management styles */
+        .category-management {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+        .category-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 5px 0;
+            background: #f5f5f5;
+            border-radius: 3px;
+        }
+        .category-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .category-edit-btn {
+            background: #2196F3;
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+        .category-delete-btn {
+            background: #f44336;
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+        
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 5px;
+        }
+        .close-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close-modal:hover {
+            color: black;
+        }
+        .modal-footer {
+            margin-top: 20px;
+            text-align: right;
         }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <header class="text-center mb-10">
-        <h1 class="text-4xl font-bold text-gray-800">Sysnet Service Management</h1>
-        <p class="text-gray-600 mt-2">A simple system to manage customer service requests.</p>
-    </header>
-
-    <main class="bg-white rounded-xl shadow-lg p-8">
-        <!-- Customer View Section -->
-        <section id="customer-view" class="active-view">
-            <h2 class="text-2xl font-semibold mb-6 text-gray-800 border-b pb-2">Submit a Service Request</h2>
-            <form id="service-request-form" class="space-y-6">
-                <div>
-                    <label for="customer-name" class="block text-sm font-medium text-gray-700">Your Name</label>
-                    <input type="text" id="customer-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2" required>
-                </div>
-                <div>
-                    <label for="company-name" class="block text-sm font-medium text-gray-700">Company Name</label>
-                    <input type="text" id="company-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2" required>
-                </div>
-                <div>
-                    <label for="customer-phone" class="block text-sm font-medium text-gray-700">Phone Number</label>
-                    <input type="tel" id="customer-phone" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2" required>
-                </div>
-                <div>
-                    <label for="issue-description" class="block text-sm font-medium text-gray-700">Describe the Issue</label>
-                    <textarea id="issue-description" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2" required></textarea>
-                </div>
-                <button type="submit" class="w-full py-3 px-4 bg-blue-500 hover:bg-blue-600 rounded-md text-white font-semibold transition-colors duration-200">Submit Request</button>
-            </form>
-            <div id="submission-message" class="mt-6 p-4 rounded-md bg-blue-100 text-blue-700 hidden"></div>
-
-            <div class="mt-10 pt-6 border-t border-gray-200">
-                <h2 class="text-2xl font-semibold mb-4 text-gray-800">Check Request Status</h2>
-                <div class="flex flex-col sm:flex-row sm:space-x-4">
-                    <input type="text" id="status-check-id" placeholder="Enter your Service ID (e.g., SR0001)" class="flex-grow rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 mb-4 sm:mb-0">
-                    <button id="check-status-btn" class="px-6 py-2 bg-gray-300 hover:bg-gray-400 rounded-md text-gray-800 font-semibold transition-colors duration-200">Check Status</button>
-                </div>
-                <div id="status-result" class="mt-4 p-4 rounded-md bg-gray-100 hidden"></div>
-            </div>
-        </section>
-
-        <!-- Admin View Section -->
-        <section id="admin-view" class="hidden">
-            <!-- Admin Login Form -->
-            <div id="admin-login-panel" class="p-8 rounded-lg shadow-md max-w-md mx-auto">
-                <h2 class="text-2xl font-semibold mb-6 text-center text-gray-800">Manager Login</h2>
-                <form id="admin-login-form" class="space-y-4">
+    <h1>My Digital Diary - Spread your Knowledge with Your Friends/Groups</h1>
+    
+    <div class="container">
+        <div class="panel">
+            <h2>Create/Edit Topic</h2>
+            <input type="text" id="topicTitle" placeholder="Title">
+            <select id="topicCategory">
+                <option value="">-- Select Category --</option>
+            </select>
+            <input type="text" id="newCategory" placeholder="New category name">
+            <button id="addCategoryBtn" class="category">Add Category</button>
+            
+            <div id="editor-container"></div>
+            
+            <div class="topic-viewer" id="topicViewer">
+                <div class="edit-bar">
+                    <h3 id="viewerTitle"></h3>
                     <div>
-                        <label for="admin-password" class="block text-sm font-medium text-gray-700">Password</label>
-                        <input type="password" id="admin-password" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500 p-2" required>
+                        <button id="editTopicBtn">Edit</button>
+                        <button id="closeViewerBtn">Close</button>
                     </div>
-                    <button type="submit" class="w-full py-3 px-4 bg-green-500 hover:bg-green-600 rounded-md text-white font-semibold transition-colors duration-200">Login</button>
-                </form>
-                <div id="login-message" class="mt-4 p-3 rounded-md text-sm text-center hidden"></div>
+                </div>
+                <div id="topicContent"></div>
             </div>
+            
+            <div class="button-group">
+                <button id="saveBtn">Save</button>
+                <button id="newBtn">New</button>
+                <button id="deleteBtn" class="delete">Delete</button>
+            </div>
+            
+            <div class="category-management">
+                <h3>Category Management</h3>
+                <div id="categoryList"></div>
+            </div>
+            
+            <h2>Import/Export</h2>
+            <button id="exportAllBtn" class="export">Export All</button>
+            <button id="exportSelectedBtn" class="export">Export Selected</button>
+            <button id="importBtn" class="import">Import</button>
+            <input type="file" id="fileInput" style="display:none">
+            
+            <h2>Search</h2>
+            <input type="text" id="searchInput" placeholder="Search...">
+            <button id="searchBtn">Search</button>
+        </div>
+        
+        <div class="panel">
+            <h2>Topics</h2>
+            <div class="category-filter">
+                <span class="category-tag active" id="allTopicsTag" data-category="">All Topics</span>
+            </div>
+            <div id="topicList"></div>
+            <div id="searchResults" class="search-results"></div>
+        </div>
+    </div>
 
-            <!-- Service Call Dashboard (Hidden by default) -->
-            <div id="admin-dashboard" class="hidden">
-                <div class="flex justify-between items-center mb-6 border-b pb-2">
-                    <h2 class="text-2xl font-semibold text-gray-800">Service Call Dashboard</h2>
-                    <button id="generate-report-btn" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white font-semibold transition-colors duration-200">Generate Report</button>
-                </div>
-                <div id="loading-spinner" class="text-center p-8 text-gray-500">
-                    <svg class="animate-spin h-8 w-8 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p>Loading data...</p>
-                </div>
+    <!-- Edit Category Modal -->
+    <div id="editCategoryModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Edit Category</h3>
+            <input type="text" id="editCategoryName" placeholder="Category name">
+            <div class="modal-footer">
+                <button id="saveEditCategoryBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Delete Category Modal -->
+    <div id="deleteCategoryModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h3>Delete Category</h3>
+            <div id="deleteCategoryMessage"></div>
+            <div id="reassignCategorySection" style="display: none; margin-top: 15px;">
+                <p>Please select a new category for affected topics:</p>
+                <select id="reassignCategorySelect" style="width: 100%; margin-bottom: 15px;"></select>
+            </div>
+            <div class="modal-footer">
+                <button id="confirmDeleteCategoryBtn" class="delete">Confirm Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Quill editor
+        const quill = new Quill('#editor-container', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    ['bold', 'italic', 'underline', 'strike'],
+                    ['blockquote', 'code-block'],
+                    [{ 'header': 1 }, { 'header': 2 }],
+                    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                    [{ 'script': 'sub'}, { 'script': 'super' }],
+                    [{ 'indent': '-1'}, { 'indent': '+1' }],
+                    [{ 'direction': 'rtl' }],
+                    [{ 'size': ['small', false, 'large', 'huge'] }],
+                    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'font': [] }],
+                    [{ 'align': [] }],
+                    ['clean'],
+                    ['link', 'image', 'video']
+                ]
+            },
+            placeholder: 'Write your content here...'
+        });
+
+        // Initialize jsPDF
+        const { jsPDF } = window.jspdf;
+
+        // Database using localStorage
+        const db = {
+            getData: () => {
+                const data = JSON.parse(localStorage.getItem('topicData')) || { topics: [], categories: [] };
+                // Ensure all topics have required fields
+                data.topics = data.topics.map(topic => ({
+                    id: topic.id || Date.now().toString(),
+                    title: topic.title || 'Untitled',
+                    content: topic.content || '',
+                    category: topic.category || '',
+                    updatedAt: topic.updatedAt || new Date().toISOString(),
+                    createdAt: topic.createdAt || new Date().toISOString()
+                }));
+                return data;
+            },
+            saveData: (data) => localStorage.setItem('topicData', JSON.stringify(data)),
+            
+            addTopic: (topic) => {
+                const data = db.getData();
+                data.topics.push(topic);
+                db.saveData(data);
+            },
+            
+            updateTopic: (id, updates) => {
+                const data = db.getData();
+                const index = data.topics.findIndex(t => t.id === id);
+                if (index !== -1) {
+                    data.topics[index] = { ...data.topics[index], ...updates };
+                    db.saveData(data);
+                }
+            },
+            
+            deleteTopic: (id) => {
+                const data = db.getData();
+                data.topics = data.topics.filter(t => t.id !== id);
+                db.saveData(data);
+            },
+            
+            addCategory: (name) => {
+                if (!name) return;
+                const data = db.getData();
+                if (!data.categories.includes(name)) {
+                    data.categories.push(name);
+                    db.saveData(data);
+                }
+            },
+            
+            updateCategory: (oldName, newName) => {
+                if (!oldName || !newName) return;
+                const data = db.getData();
                 
-                <!-- New section for adding engineers -->
-                <div class="p-6 rounded-lg bg-gray-100 mb-6">
-                    <h3 class="text-lg font-semibold mb-3 text-gray-800">Add New Engineer</h3>
-                    <form id="add-engineer-form" class="flex flex-col sm:flex-row gap-4 items-end">
-                        <div class="flex-grow">
-                            <label for="new-engineer-name" class="block text-sm font-medium text-gray-700">Engineer Name</label>
-                            <input type="text" id="new-engineer-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-purple-500 focus:ring-purple-500 p-2" required>
-                        </div>
-                        <button type="submit" class="px-6 py-2 bg-purple-500 hover:bg-purple-600 rounded-md text-white font-semibold transition-colors duration-200">Add Engineer</button>
-                    </form>
-                    <div id="engineer-message" class="mt-4 p-3 rounded-md text-sm text-center hidden"></div>
-                </div>
-
-                <div id="admin-table-container" class="overflow-hidden rounded-lg shadow-md mt-6 hidden">
-                    <div class="h-[600px] overflow-y-scroll" id="table-scroll-container">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50 sticky top-0">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created At</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Update</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">History</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-table-body" class="bg-white divide-y divide-gray-200">
-                                <!-- Service calls will be populated here by JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Message Modal -->
-        <div id="modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3 text-center">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900" id="modal-title"></h3>
-                    <div class="mt-2 px-7 py-3">
-                        <p class="text-sm text-gray-500" id="modal-body"></p>
-                    </div>
-                    <div class="items-center px-4 py-3">
-                        <button id="modal-close-btn" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300">
-                            Close
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Remark Modal -->
-        <div id="remark-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3 text-center">
-                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Add Completion Remark</h3>
-                    <div class="mt-2 px-7 py-3">
-                        <textarea id="remark-textarea" rows="4" class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2" placeholder="Describe how the task was completed..."></textarea>
-                    </div>
-                    <div class="items-center px-4 py-3 space-y-2">
-                        <button id="save-remark-btn" class="px-4 py-2 bg-green-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300">
-                            Save Remark
-                        </button>
-                        <button id="cancel-remark-btn" class="px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300">
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-
-        <!-- View Toggler Buttons -->
-        <div class="flex justify-center mt-8 space-x-4">
-            <button id="service-request-form-btn" class="px-6 py-2 rounded-full text-white font-semibold transition-transform transform hover:scale-105 active:scale-95 shadow-md bg-blue-500 hover:bg-blue-600">Service Request Form</button>
-            <button id="admin-view-btn" class="px-6 py-2 rounded-full text-white font-semibold transition-transform transform hover:scale-105 active:scale-95 shadow-md bg-green-500 hover:bg-green-600">Admin</button>
-        </div>
-    </main>
-</div>
-
-<!-- All application logic is in a single script tag to make it self-contained -->
-<script>
-    // --- IMPORTANT: UPDATE THIS URL FOR PUBLIC HOSTING ---
-    // Change 'http://localhost:3000' to the actual URL of your deployed backend server.
-    // For example: const API_URL = 'https://your-backend-app.onrender.com/api';
-    const API_URL = 'http://localhost:3000/api';
-    
-    // Status options for the dropdown menu
-    const STATUS_OPTIONS = ["Open", "In-Progress", "Closed", "On Hold"];
-    const ADMIN_PASSWORD = "654123";
-
-    // UI elements
-    const customerView = document.getElementById('customer-view');
-    const adminView = document.getElementById('admin-view');
-    const serviceRequestFormBtn = document.getElementById('service-request-form-btn');
-    const adminViewBtn = document.getElementById('admin-view-btn');
-    const serviceRequestForm = document.getElementById('service-request-form');
-    const submissionMessage = document.getElementById('submission-message');
-    const statusCheckIdInput = document.getElementById('status-check-id');
-    const checkStatusBtn = document.getElementById('check-status-btn');
-    const statusResultDiv = document.getElementById('status-result');
-    const adminTableBody = document.getElementById('admin-table-body');
-    const loadingSpinner = document.getElementById('loading-spinner');
-    const adminLoginPanel = document.getElementById('admin-login-panel');
-    const adminDashboard = document.getElementById('admin-dashboard');
-    const adminLoginForm = document.getElementById('admin-login-form');
-    const adminPasswordInput = document.getElementById('admin-password');
-    const loginMessage = document.getElementById('login-message');
-    const generateReportBtn = document.getElementById('generate-report-btn');
-    const modal = document.getElementById('modal');
-    const modalTitle = document.getElementById('modal-title');
-    const modalBody = document.getElementById('modal-body');
-    const modalCloseBtn = document.getElementById('modal-close-btn');
-    const remarkModal = document.getElementById('remark-modal');
-    const remarkTextarea = document.getElementById('remark-textarea');
-    const saveRemarkBtn = document.getElementById('save-remark-btn');
-    const cancelRemarkBtn = document = document.getElementById('cancel-remark-btn');
-    const adminTableContainer = document.getElementById('admin-table-container');
-
-    // New UI elements for adding engineers
-    const addEngineerForm = document.getElementById('add-engineer-form');
-    const newEngineerNameInput = document.getElementById('new-engineer-name');
-    const engineerMessageDiv = document.getElementById('engineer-message');
-
-    // Utility to show the modal
-    function showModal(title, body) {
-        modalTitle.textContent = title;
-        modalBody.innerHTML = body; // Use innerHTML to allow for HTML formatting in history view
-        modal.classList.remove('hidden');
-    }
-
-    // Utility to close the modal
-    modalCloseBtn.addEventListener('click', () => {
-        modal.classList.add('hidden');
-    });
-
-    // Toggle views
-    function toggleView(view) {
-        if (view === 'customer') {
-            customerView.classList.remove('hidden');
-            adminView.classList.add('hidden');
-        } else {
-            customerView.classList.add('hidden');
-            adminView.classList.remove('hidden');
-            adminLoginPanel.classList.remove('hidden');
-            adminDashboard.classList.add('hidden');
-        }
-    }
-
-    serviceRequestFormBtn.addEventListener('click', () => toggleView('customer'));
-    adminViewBtn.addEventListener('click', () => toggleView('admin'));
-
-    // Handle admin login
-    adminLoginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const password = adminPasswordInput.value;
-
-        if (password === ADMIN_PASSWORD) {
-            adminLoginPanel.classList.add('hidden');
-            adminDashboard.classList.remove('hidden');
-            loginMessage.textContent = '';
-            // Load the dashboard data after successful login
-            fetchAndRenderAdminTable();
-        } else {
-            loginMessage.textContent = 'Invalid password. Please try again.';
-            loginMessage.classList.remove('hidden');
-            loginMessage.classList.add('bg-red-100', 'text-red-700');
-        }
-    });
-
-    // Handle new service request submission
-    serviceRequestForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const customerName = document.getElementById('customer-name').value;
-        const companyName = document.getElementById('company-name').value;
-        const customerPhone = document.getElementById('customer-phone').value;
-        const issueDescription = document.getElementById('issue-description').value;
-
-        try {
-            const response = await fetch(`${API_URL}/calls`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ customerName, companyName, customerPhone, issueDescription }),
-            });
-            const data = await response.json();
-
-            if (response.ok) {
-                submissionMessage.textContent = `Your service request has been submitted! Your Service ID is: ${data.id}. Please save this ID to check the status.`;
-                submissionMessage.classList.remove('hidden');
-                serviceRequestForm.reset();
-            } else {
-                showModal('Submission Failed', data.error || 'Something went wrong.');
-            }
-        } catch (error) {
-            console.error('Submission error:', error);
-            showModal('Submission Error', 'Failed to connect to the server. Please ensure the backend is running.');
-        }
-    });
-
-    // Handle adding a new engineer
-    addEngineerForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const newEngineerName = newEngineerNameInput.value.trim();
-        if (!newEngineerName) return;
-
-        try {
-            const response = await fetch(`${API_URL}/engineers`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name: newEngineerName }),
-            });
-            const data = await response.json();
-
-            if (response.ok) {
-                engineerMessageDiv.textContent = `"${data.name}" has been added successfully.`;
-                engineerMessageDiv.classList.remove('hidden');
-                engineerMessageDiv.classList.add('bg-green-100', 'text-green-700');
-                newEngineerNameInput.value = ''; // Clear the input
-                // Refresh the table to update dropdowns
-                fetchAndRenderAdminTable();
-            } else {
-                showModal('Error Adding Engineer', data.error || 'Something went wrong.');
-            }
-        } catch (error) {
-            console.error('Add engineer error:', error);
-            showModal('Error Adding Engineer', 'Failed to connect to the server.');
-        }
-    });
-
-    // Check status of a single service request
-    checkStatusBtn.addEventListener('click', async () => {
-        const callId = statusCheckIdInput.value.trim().toUpperCase();
-        if (!callId) {
-            showModal('Invalid ID', 'Please enter a valid Service ID.');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${API_URL}/calls/${callId}`);
-            const call = await response.json();
-            
-            if (response.ok) {
-                statusResultDiv.innerHTML = `
-                    <p class="font-bold text-gray-800">Service ID: <span class="font-normal">${call.id}</span></p>
-                    <p class="font-bold text-gray-800">Company Name: <span class="font-normal">${call.company_name}</span></p>
-                    <p class="font-bold text-gray-800">Status: <span class="font-normal">${call.status}</span></p>
-                    <p class="font-bold text-gray-800">Assigned Engineer: <span class="font-normal">${call.assigned_to}</span></p>
-                    <p class="font-bold text-gray-800">Issue: <span class="font-normal">${call.issue_description}</span></p>
-                `;
-                statusResultDiv.classList.remove('hidden');
-            } else {
-                statusResultDiv.innerHTML = `<p class="text-red-600">No service request found with that ID.</p>`;
-                statusResultDiv.classList.remove('hidden');
-            }
-        } catch (error) {
-            console.error('Status check error:', error);
-            showModal('Error', 'Failed to connect to the server.');
-        }
-    });
-
-    // Update service call on the backend
-    async function updateServiceCall(callId, field, value, remark = null) {
-        try {
-            const response = await fetch(`${API_URL}/calls/${callId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ field, value, remark }),
-            });
-            
-            if (!response.ok) {
-                const data = await response.json();
-                showModal('Update Failed', data.error || 'Something went wrong.');
-            }
-            fetchAndRenderAdminTable(); // Refresh the table after a successful update
-        } catch (error) {
-            console.error('Update error:', error);
-            showModal('Update Error', 'Failed to connect to the server.');
-        }
-    }
-    
-    // Fetch and render the admin dashboard table
-    async function fetchAndRenderAdminTable() {
-        loadingSpinner.classList.remove('hidden');
-        adminTableContainer.classList.add('hidden');
-        adminTableBody.innerHTML = '';
-        
-        try {
-            const [callsResponse, engineersResponse] = await Promise.all([
-                fetch(`${API_URL}/calls`),
-                fetch(`${API_URL}/engineers`)
-            ]);
-            const serviceCalls = await callsResponse.json();
-            const engineersList = await engineersResponse.json();
-
-            serviceCalls.forEach(call => {
-                const updates = call.updates || [];
-                const lastUpdate = updates.length > 0 ? new Date(updates[updates.length - 1].timestamp).toLocaleString() : 'N/A';
-                const row = document.createElement('tr');
-                row.classList.add('hover:bg-gray-100');
-                row.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 truncate" style="max-width: 100px;">${call.id}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${call.customer_name}</td>
-                    <td class="px-6 py-4 whitespace-now-wrap text-sm text-gray-500 truncate" style="max-width: 150px;">${call.company_name || 'N/A'}</td>
-                    <td class="px-6 py-4 text-sm text-gray-500 truncate" style="max-width: 200px;">${call.issue_description}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <select class="status-select bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" data-id="${call.id}">
-                            ${STATUS_OPTIONS.map(status => `<option value="${status}" ${call.status === status ? 'selected' : ''}>${status}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <select class="engineer-select bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" data-id="${call.id}">
-                            <option value="Unassigned" ${call.assigned_to === "Unassigned" ? 'selected' : ''}>Unassigned</option>
-                            ${engineersList.map(engineer => `<option value="${engineer}" ${call.assigned_to === engineer ? 'selected' : ''}>${engineer}</option>`).join('')}
-                        </select>
-                    </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(call.created_at).toLocaleString()}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${lastUpdate}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 cursor-pointer hover:underline" onclick="viewHistory('${call.id}')">View</td>
-                `;
-                adminTableBody.appendChild(row);
-            });
-
-            // Add event listeners to the new dropdowns
-            document.querySelectorAll('.status-select').forEach(select => {
-                select.addEventListener('change', (e) => {
-                    const callId = e.target.dataset.id;
-                    const newStatus = e.target.value;
-                    const originalStatus = STATUS_OPTIONS.find(s => e.target.options[e.target.options.selectedIndex].text === s);
-                    
-                    if (newStatus === 'Closed') {
-                        remarkModal.classList.remove('hidden');
-                        
-                        saveRemarkBtn.onclick = () => {
-                            const remark = remarkTextarea.value.trim();
-                            if (remark) {
-                                updateServiceCall(callId, 'status', newStatus, remark);
-                                remarkModal.classList.add('hidden');
-                                remarkTextarea.value = '';
-                            } else {
-                                showModal('Remark Required', 'Please provide a completion remark before closing the request.');
-                            }
-                        };
-                        
-                        cancelRemarkBtn.onclick = () => {
-                            e.target.value = originalStatus;
-                            remarkModal.classList.add('hidden');
-                            remarkTextarea.value = '';
-                        };
-                    } else {
-                        updateServiceCall(callId, 'status', newStatus);
+                // Update category name in categories array
+                const catIndex = data.categories.indexOf(oldName);
+                if (catIndex !== -1) {
+                    data.categories[catIndex] = newName;
+                }
+                
+                // Update category in all topics
+                data.topics = data.topics.map(topic => {
+                    if (topic.category === oldName) {
+                        return { ...topic, category: newName };
                     }
+                    return topic;
                 });
-            });
+                
+                db.saveData(data);
+            },
+            
+            deleteCategory: (name, reassignTo = '') => {
+                if (!name) return;
+                const data = db.getData();
+                
+                // Remove category from categories array
+                data.categories = data.categories.filter(c => c !== name);
+                
+                // Update topics that had this category
+                data.topics = data.topics.map(topic => {
+                    if (topic.category === name) {
+                        return { ...topic, category: reassignTo };
+                    }
+                    return topic;
+                });
+                
+                db.saveData(data);
+            },
+            
+            getTopicsByCategory: (category) => {
+                const data = db.getData();
+                return data.topics.filter(t => t.category === category);
+            }
+        };
 
-            document.querySelectorAll('.engineer-select').forEach(select => {
-                select.addEventListener('change', (e) => {
-                    const callId = e.target.dataset.id;
-                    const newEngineer = e.target.value;
-                    updateServiceCall(callId, 'assignedTo', newEngineer);
-                });
+        // DOM Elements
+        const el = {
+            title: document.getElementById('topicTitle'),
+            category: document.getElementById('topicCategory'),
+            newCategory: document.getElementById('newCategory'),
+            addCategoryBtn: document.getElementById('addCategoryBtn'),
+            saveBtn: document.getElementById('saveBtn'),
+            newBtn: document.getElementById('newBtn'),
+            deleteBtn: document.getElementById('deleteBtn'),
+            exportAllBtn: document.getElementById('exportAllBtn'),
+            exportSelectedBtn: document.getElementById('exportSelectedBtn'),
+            importBtn: document.getElementById('importBtn'),
+            fileInput: document.getElementById('fileInput'),
+            searchInput: document.getElementById('searchInput'),
+            searchBtn: document.getElementById('searchBtn'),
+            topicList: document.getElementById('topicList'),
+            searchResults: document.getElementById('searchResults'),
+            categoryFilter: document.querySelector('.category-filter'),
+            allTopicsTag: document.getElementById('allTopicsTag'),
+            topicViewer: document.getElementById('topicViewer'),
+            viewerTitle: document.getElementById('viewerTitle'),
+            topicContent: document.getElementById('topicContent'),
+            editTopicBtn: document.getElementById('editTopicBtn'),
+            closeViewerBtn: document.getElementById('closeViewerBtn'),
+            categoryList: document.getElementById('categoryList'),
+            editCategoryModal: document.getElementById('editCategoryModal'),
+            editCategoryName: document.getElementById('editCategoryName'),
+            saveEditCategoryBtn: document.getElementById('saveEditCategoryBtn'),
+            deleteCategoryModal: document.getElementById('deleteCategoryModal'),
+            deleteCategoryMessage: document.getElementById('deleteCategoryMessage'),
+            reassignCategorySection: document.getElementById('reassignCategorySection'),
+            reassignCategorySelect: document.getElementById('reassignCategorySelect'),
+            confirmDeleteCategoryBtn: document.getElementById('confirmDeleteCategoryBtn'),
+            closeModalBtns: document.querySelectorAll('.close-modal')
+        };
+
+        let currentTopicId = null;
+        let selectedCategory = '';
+        let currentCategoryBeingEdited = null;
+        let currentCategoryBeingDeleted = null;
+
+        // Load categories into dropdown and display them
+        function loadCategories() {
+            const data = db.getData();
+            el.category.innerHTML = '<option value="">-- Select Category --</option>';
+            data.categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                el.category.appendChild(option);
             });
             
-        } catch (error) {
-            console.error('Fetch error:', error);
-            showModal('Error', 'Failed to connect to the server. Please ensure the backend is running and the URL is correct.');
-        } finally {
-            loadingSpinner.classList.add('hidden');
-            adminTableContainer.classList.remove('hidden');
+            // Update category filter (keep "All Topics" first)
+            el.categoryFilter.innerHTML = '';
+            const allSpan = document.createElement('span');
+            allSpan.className = 'category-tag active';
+            allSpan.id = 'allTopicsTag';
+            allSpan.textContent = 'All Topics';
+            allSpan.dataset.category = '';
+            allSpan.addEventListener('click', () => filterByCategory(''));
+            el.categoryFilter.appendChild(allSpan);
+            
+            data.categories.forEach(cat => {
+                const span = document.createElement('span');
+                span.className = 'category-tag';
+                if (cat === selectedCategory) span.classList.add('active');
+                span.textContent = cat;
+                span.dataset.category = cat;
+                span.addEventListener('click', () => filterByCategory(cat));
+                el.categoryFilter.appendChild(span);
+            });
+            
+            // Display categories in management section
+            displayCategories();
         }
-    }
-    
-    // Function to generate and download a CSV report
-    generateReportBtn.addEventListener('click', async () => {
-        try {
-            const response = await fetch(`${API_URL}/calls`);
-            if (!response.ok) {
-                showModal('Report Generation Failed', 'Failed to fetch data from the server.');
+
+        // Display categories in the management section
+        function displayCategories() {
+            const data = db.getData();
+            el.categoryList.innerHTML = '';
+            
+            if (data.categories.length === 0) {
+                el.categoryList.innerHTML = '<p>No categories yet</p>';
                 return;
             }
-            const serviceCalls = await response.json();
+            
+            data.categories.forEach(category => {
+                const div = document.createElement('div');
+                div.className = 'category-item';
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = category;
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'category-actions';
+                
+                const editBtn = document.createElement('button');
+                editBtn.className = 'category-edit-btn';
+                editBtn.textContent = 'Edit';
+                editBtn.addEventListener('click', () => openEditCategoryModal(category));
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'category-delete-btn';
+                deleteBtn.textContent = 'Delete';
+                deleteBtn.addEventListener('click', () => openDeleteCategoryModal(category));
+                
+                actionsDiv.appendChild(editBtn);
+                actionsDiv.appendChild(deleteBtn);
+                
+                div.appendChild(nameSpan);
+                div.appendChild(actionsDiv);
+                
+                el.categoryList.appendChild(div);
+            });
+        }
 
-            if (serviceCalls.length === 0) {
-                showModal('Report Generation', 'There is no data to generate a report.');
+        // Display topics with proper filtering
+        function displayTopics() {
+            const data = db.getData();
+            let topics = data.topics;
+            
+            // Filter by category if one is selected (empty string shows all)
+            if (selectedCategory !== '') {
+                topics = topics.filter(t => t.category === selectedCategory);
+            }
+            
+            // Sort by updatedAt (newest first)
+            topics.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+            
+            el.topicList.innerHTML = '';
+            
+            if (topics.length === 0) {
+                el.topicList.innerHTML = '<p>No topics found</p>';
                 return;
             }
+            
+            topics.forEach(topic => {
+                const div = document.createElement('div');
+                div.className = 'topic-item';
+                div.dataset.id = topic.id;
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'topic-select';
+                checkbox.dataset.id = topic.id;
+                
+                const viewDiv = document.createElement('div');
+                viewDiv.className = 'view-topic';
+                viewDiv.innerHTML = `
+                    <strong>${topic.title}</strong>
+                    <div style="font-size:0.8em;color:#666;">
+                        ${new Date(topic.updatedAt).toLocaleString()}
+                    </div>
+                `;
+                viewDiv.addEventListener('click', () => viewTopic(topic.id));
+                
+                const categorySpan = document.createElement('span');
+                categorySpan.className = 'topic-category';
+                categorySpan.textContent = topic.category || 'Uncategorized';
+                
+                const actionsDiv = document.createElement('div');
+                actionsDiv.className = 'topic-actions';
+                
+                const pdfBtn = document.createElement('button');
+                pdfBtn.className = 'action-btn pdf';
+                pdfBtn.textContent = 'PDF';
+                pdfBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    exportToPDF(topic);
+                });
+                
+                actionsDiv.appendChild(pdfBtn);
+                
+                div.appendChild(checkbox);
+                div.appendChild(viewDiv);
+                div.appendChild(categorySpan);
+                div.appendChild(actionsDiv);
+                
+                el.topicList.appendChild(div);
+            });
+        }
 
-            const headers = ["ID", "Customer", "Company", "Issue", "Status", "Assigned To", "Created At", "Last Update", "Completion Remark"];
+        // Filter by category
+        function filterByCategory(category) {
+            selectedCategory = category;
             
-            const rows = serviceCalls.map(call => [
-                `"${call.id}"`,
-                `"${call.customer_name}"`,
-                `"${call.company_name || 'N/A'}"`,
-                `"${call.issue_description.replace(/"/g, '""')}"`,
-                `"${call.status}"`,
-                `"${call.assigned_to}"`,
-                `"${new Date(call.created_at).toLocaleString()}"`,
-                `"${(call.updates && call.updates.length > 0) ? new Date(call.updates[call.updates.length - 1].timestamp).toLocaleString() : 'N/A'}"`,
-                `"${call.completion_remark ? call.completion_remark.replace(/"/g, '""') : 'N/A'}"`
-            ]);
+            // Update active tags
+            document.querySelectorAll('.category-tag').forEach(tag => {
+                tag.classList.toggle('active', tag.dataset.category === category);
+            });
             
-            let csvContent = headers.join(",") + "\n" + rows.map(row => row.join(",")).join("\n");
+            displayTopics();
+        }
+
+        // View topic in read-only mode
+        function viewTopic(id) {
+            const topic = db.getData().topics.find(t => t.id === id);
+            if (topic) {
+                currentTopicId = id;
+                el.viewerTitle.textContent = topic.title;
+                el.topicContent.innerHTML = topic.content;
+                
+                // Highlight the topic in the list
+                document.querySelectorAll('.topic-item').forEach(item => {
+                    item.style.background = item.dataset.id === id ? '#e6f7ff' : '#f9f9f9';
+                });
+                
+                // Show viewer and hide editor
+                el.topicViewer.style.display = 'block';
+                document.getElementById('editor-container').style.display = 'none';
+                quill.enable(false);
+                document.querySelector('#editor-container .ql-toolbar').style.display = 'none';
+                document.querySelector('#editor-container .ql-container').style.border = 'none';
+            }
+        }
+
+        // Edit existing topic
+        function editTopic() {
+            const topic = db.getData().topics.find(t => t.id === currentTopicId);
+            if (topic) {
+                el.title.value = topic.title;
+                el.category.value = topic.category || '';
+                quill.root.innerHTML = topic.content;
+                
+                // Switch to edit mode
+                el.topicViewer.style.display = 'none';
+                document.getElementById('editor-container').style.display = 'block';
+                quill.enable(true);
+                document.querySelector('#editor-container .ql-toolbar').style.display = '';
+                document.querySelector('#editor-container .ql-container').style.border = '';
+                el.title.focus();
+            }
+        }
+
+        // Save topic
+        function saveTopic() {
+            const title = el.title.value.trim();
+            if (!title) return alert('Title is required');
             
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
+            const content = quill.root.innerHTML;
+            const category = el.category.value || '';
+            
+            const topic = {
+                id: currentTopicId || Date.now().toString(),
+                title,
+                content,
+                category,
+                updatedAt: new Date().toISOString(),
+                createdAt: currentTopicId ? undefined : new Date().toISOString()
+            };
+            
+            if (currentTopicId) {
+                db.updateTopic(currentTopicId, topic);
+            } else {
+                db.addTopic(topic);
+            }
+            
+            resetForm();
+            loadCategories();
+            displayTopics();
+        }
+
+        // Add new category
+        function addCategory() {
+            const name = el.newCategory.value.trim();
+            if (!name) return;
+            
+            db.addCategory(name);
+            el.newCategory.value = '';
+            loadCategories();
+        }
+
+        // Delete topic
+        function deleteTopic() {
+            if (!currentTopicId) return alert('No topic selected');
+            if (confirm('Delete this topic?')) {
+                db.deleteTopic(currentTopicId);
+                resetForm();
+                displayTopics();
+            }
+        }
+
+        // Reset form
+        function resetForm() {
+            currentTopicId = null;
+            el.title.value = '';
+            el.category.value = '';
+            quill.root.innerHTML = '';
+            el.title.focus();
+            
+            // Hide viewer and show editor
+            el.topicViewer.style.display = 'none';
+            document.getElementById('editor-container').style.display = 'block';
+            quill.enable(true);
+            document.querySelector('#editor-container .ql-toolbar').style.display = '';
+            document.querySelector('#editor-container .ql-container').style.border = '';
+            
+            // Remove highlighting from topics list
+            document.querySelectorAll('.topic-item').forEach(item => {
+                item.style.background = '#f9f9f9';
+            });
+        }
+
+        // Export to PDF
+        function exportToPDF(topic) {
+            const doc = new jsPDF();
+            
+            // Add title
+            doc.setFontSize(20);
+            doc.setTextColor(33, 150, 243);
+            doc.text(topic.title, 15, 20);
+            
+            // Add category if exists
+            if (topic.category) {
+                doc.setFontSize(12);
+                doc.setTextColor(128, 128, 128);
+                doc.text(`Category: ${topic.category}`, 15, 30);
+            }
+            
+            // Add date
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Last updated: ${new Date(topic.updatedAt).toLocaleString()}`, 15, 40);
+            
+            // Add content (simple text version)
+            const content = document.createElement('div');
+            content.innerHTML = topic.content;
+            const textContent = content.textContent || "";
+            
+            const lines = doc.splitTextToSize(textContent, 180);
+            doc.setFontSize(12);
+            doc.setTextColor(0, 0, 0);
+            doc.text(lines, 15, 50);
+            
+            // Add footer
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text(`Exported from Topic Manager on ${new Date().toLocaleString()}`, 15, doc.internal.pageSize.height - 10);
+            
+            // Save the PDF
+            doc.save(`${topic.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`);
+        }
+
+        // Export all topics
+        function exportAllTopics() {
+            const topics = db.getData().topics;
+            if (topics.length === 0) return alert('No topics to export');
+            
+            const json = JSON.stringify(topics, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", "service_calls_report.csv");
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } catch (error) {
-            console.error('Report generation error:', error);
-            showModal('Report Error', 'Failed to generate report due to server error.');
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'all-topics-export.json';
+            a.click();
+            URL.revokeObjectURL(url);
         }
-    });
 
-    // Function to view the history of a call
-    window.viewHistory = async function(callId) {
-        try {
-            const response = await fetch(`${API_URL}/calls/${callId}`);
-            if (!response.ok) {
-                showModal('Error', 'Service call not found.');
+        // Export selected topics
+        function exportSelectedTopics() {
+            const selected = Array.from(document.querySelectorAll('.topic-select:checked'));
+            if (selected.length === 0) return alert('No topics selected');
+            
+            const data = db.getData();
+            const topicsToExport = selected.map(checkbox => {
+                return data.topics.find(t => t.id === checkbox.dataset.id);
+            }).filter(Boolean);
+            
+            const json = JSON.stringify(topicsToExport, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'selected-topics-export.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Import topics
+        function importTopics() {
+            el.fileInput.click();
+        }
+
+        // Handle file import
+        el.fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedTopics = JSON.parse(e.target.result);
+                    if (!Array.isArray(importedTopics)) throw new Error('Invalid format');
+                    
+                    importTopicSelection(importedTopics);
+                } catch (err) {
+                    alert('Error: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        // Import topic selection
+        function importTopicSelection(importedTopics) {
+            const existingIds = db.getData().topics.map(t => t.id);
+            const newTopics = importedTopics.filter(t => !existingIds.includes(t.id));
+            
+            if (newTopics.length === 0) {
+                return alert('No new topics to import');
+            }
+            
+            let html = '<h3>Select Topics to Import</h3>';
+            html += '<div style="margin-bottom:10px;">';
+            html += '<input type="checkbox" id="selectAll" checked> ';
+            html += '<label for="selectAll">Select All</label>';
+            html += '</div>';
+            
+            newTopics.forEach(topic => {
+                html += `
+                    <div style="margin-bottom:5px;">
+                        <input type="checkbox" class="import-checkbox" id="imp-${topic.id}" checked>
+                        <label for="imp-${topic.id}">
+                            <strong>${topic.title || 'Untitled'}</strong>
+                            ${topic.category ? `<span class="topic-category">${topic.category}</span>` : ''}
+                            <div style="font-size:0.8em;color:#666;">
+                                ${topic.updatedAt ? new Date(topic.updatedAt).toLocaleString() : ''}
+                            </div>
+                        </label>
+                    </div>
+                `;
+            });
+            
+            html += '<button id="confirmImport">Import Selected</button>';
+            el.searchResults.innerHTML = html;
+            
+            // Select all/none
+            document.getElementById('selectAll').addEventListener('change', function() {
+                document.querySelectorAll('.import-checkbox').forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                });
+            });
+            
+            document.getElementById('confirmImport').addEventListener('click', () => {
+                const selected = Array.from(document.querySelectorAll('.import-checkbox:checked'));
+                if (selected.length === 0) return alert('No topics selected');
+                
+                const data = db.getData();
+                const topicsToImport = newTopics.filter(t => 
+                    selected.some(s => s.id === `imp-${t.id}`)
+                ).map(topic => ({
+                    ...topic,
+                    // Ensure all required fields exist
+                    id: topic.id || Date.now().toString(),
+                    title: topic.title || 'Untitled',
+                    content: topic.content || '',
+                    category: topic.category || '',
+                    updatedAt: topic.updatedAt || new Date().toISOString(),
+                    createdAt: topic.createdAt || new Date().toISOString()
+                }));
+                
+                // Add any new categories
+                topicsToImport.forEach(topic => {
+                    if (topic.category && !data.categories.includes(topic.category)) {
+                        data.categories.push(topic.category);
+                    }
+                });
+                
+                data.topics = [...data.topics, ...topicsToImport];
+                db.saveData(data);
+                
+                el.searchResults.innerHTML = `<p>Successfully imported ${topicsToImport.length} topics</p>`;
+                loadCategories();
+                displayTopics();
+                el.fileInput.value = '';
+            });
+        }
+
+        // Search topics
+        function searchTopics() {
+            const query = el.searchInput.value.trim().toLowerCase();
+            if (!query) {
+                el.searchResults.innerHTML = '';
                 return;
             }
-            const call = await response.json();
-            const updates = call.updates || [];
-
-            let historyContent = `<p class="mb-4">History for Service ID: <span class="font-bold">${call.id}</span></p>`;
-            if (updates.length > 0) {
-                historyContent += `<ul class="list-disc list-inside space-y-1">`;
-                updates.forEach(update => {
-                    historyContent += `<li><span class="font-semibold">${new Date(update.timestamp).toLocaleString()}:</span>`;
-                    if (update.status) {
-                        historyContent += ` Status changed to "${update.status}".`;
-                    }
-                    if (update.assignedTo && update.assignedTo !== "Unassigned") {
-                        historyContent += ` Assigned to: ${update.assignedTo}.`;
-                    }
-                    if (update.remark) {
-                        historyContent += ` Remark: ${update.remark}.`;
-                    }
-                    historyContent += ` Updated by: ${update.updatedBy}.</li>`;
-                });
-                historyContent += `</ul>`;
-            } else {
-                historyContent += `<p>No history found for this request.</p>`;
+            
+            const results = db.getData().topics.filter(topic => 
+                (topic.title && topic.title.toLowerCase().includes(query)) || 
+                (topic.content && topic.content.toLowerCase().includes(query)) ||
+                (topic.category && topic.category.toLowerCase().includes(query))
+            );
+            
+            if (results.length === 0) {
+                el.searchResults.innerHTML = '<p>No results found</p>';
+                return;
             }
-            showModal('Service Call History', historyContent);
-        } catch (error) {
-            console.error('History view error:', error);
-            showModal('Error', 'Failed to retrieve history from the server.');
+            
+            let html = '<h3>Search Results</h3>';
+            results.forEach(topic => {
+                html += `
+                    <div class="topic-item" data-id="${topic.id}">
+                        <div class="view-topic">
+                            <strong>${topic.title}</strong>
+                            <span class="topic-category">${topic.category || 'Uncategorized'}</span>
+                            <div style="font-size:0.8em;color:#666;">
+                                ${new Date(topic.updatedAt).toLocaleString()}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            el.searchResults.innerHTML = html;
+            
+            // Make search results clickable
+            document.querySelectorAll('#searchResults .topic-item').forEach(item => {
+                item.addEventListener('click', () => viewTopic(item.dataset.id));
+            });
         }
-    }
 
-</script>
+        // Open edit category modal
+        function openEditCategoryModal(category) {
+            currentCategoryBeingEdited = category;
+            el.editCategoryName.value = category;
+            el.editCategoryModal.style.display = 'block';
+        }
 
+        // Open delete category modal
+        function openDeleteCategoryModal(category) {
+            currentCategoryBeingDeleted = category;
+            const topicsInCategory = db.getTopicsByCategory(category);
+            
+            if (topicsInCategory.length > 0) {
+                el.deleteCategoryMessage.innerHTML = `
+                    <p>This category has ${topicsInCategory.length} topic(s).</p>
+                    <p>You need to reassign these topics before deleting the category.</p>
+                `;
+                el.reassignCategorySection.style.display = 'block';
+                
+                // Populate the reassign select
+                const data = db.getData();
+                el.reassignCategorySelect.innerHTML = '<option value="">-- Uncategorized --</option>';
+                data.categories.filter(c => c !== category).forEach(cat => {
+                    const option = document.createElement('option');
+                    option.value = cat;
+                    option.textContent = cat;
+                    el.reassignCategorySelect.appendChild(option);
+                });
+            } else {
+                el.deleteCategoryMessage.innerHTML = '<p>Are you sure you want to delete this category?</p>';
+                el.reassignCategorySection.style.display = 'none';
+            }
+            
+            el.deleteCategoryModal.style.display = 'block';
+        }
+
+        // Close all modals
+        function closeModals() {
+            el.editCategoryModal.style.display = 'none';
+            el.deleteCategoryModal.style.display = 'none';
+        }
+
+        // Save category changes
+        function saveCategoryChanges() {
+            const newName = el.editCategoryName.value.trim();
+            if (!newName) return alert('Category name cannot be empty');
+            if (newName === currentCategoryBeingEdited) return closeModals();
+            
+            db.updateCategory(currentCategoryBeingEdited, newName);
+            closeModals();
+            loadCategories();
+            displayTopics();
+        }
+
+        // Delete category with validation
+        function deleteCategory() {
+            const reassignTo = el.reassignCategorySelect.value || '';
+            db.deleteCategory(currentCategoryBeingDeleted, reassignTo);
+            closeModals();
+            loadCategories();
+            displayTopics();
+        }
+
+        // Event Listeners
+        el.saveBtn.addEventListener('click', saveTopic);
+        el.newBtn.addEventListener('click', resetForm);
+        el.deleteBtn.addEventListener('click', deleteTopic);
+        el.addCategoryBtn.addEventListener('click', addCategory);
+        el.exportAllBtn.addEventListener('click', exportAllTopics);
+        el.exportSelectedBtn.addEventListener('click', exportSelectedTopics);
+        el.importBtn.addEventListener('click', importTopics);
+        el.searchBtn.addEventListener('click', searchTopics);
+        el.searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchTopics();
+        });
+        el.editTopicBtn.addEventListener('click', editTopic);
+        el.closeViewerBtn.addEventListener('click', () => {
+            el.topicViewer.style.display = 'none';
+            document.getElementById('editor-container').style.display = 'block';
+            quill.enable(true);
+            document.querySelector('#editor-container .ql-toolbar').style.display = '';
+            document.querySelector('#editor-container .ql-container').style.border = '';
+        });
+        el.saveEditCategoryBtn.addEventListener('click', saveCategoryChanges);
+        el.confirmDeleteCategoryBtn.addEventListener('click', deleteCategory);
+        el.closeModalBtns.forEach(btn => {
+            btn.addEventListener('click', closeModals);
+        });
+        
+        // Close modals when clicking outside
+        window.addEventListener('click', (event) => {
+            if (event.target === el.editCategoryModal) {
+                closeModals();
+            }
+            if (event.target === el.deleteCategoryModal) {
+                closeModals();
+            }
+        });
+
+        // Initialize
+        loadCategories();
+        displayTopics();
+    </script>
 </body>
 </html>
